@@ -86,18 +86,20 @@ _register_greek_fonts()
 
 def _recolor_stream_to_dark_blue(raw_bytes: bytes) -> bytes:
     """
-    Recolor black / dark grayscale text, fills and strokes to dark blue (#0F2D6B).
-    Assignment retains black text, Solution is converted to dark blue.
+    Recolor black / dark grayscale text, fills and strokes to dark navy blue (#0D338C).
+    Assignment retains crisp black text, Solution is converted to dark navy blue.
     """
     try:
         text = raw_bytes.decode("latin1", errors="ignore")
-        # Replace grayscale 0 g / 0 G with dark blue
-        text = re.sub(r"(?m)^0(\.0+)?\s+g\b", f"{NAVY_R} {NAVY_G} {NAVY_B} rg", text)
-        text = re.sub(r"(?m)^0(\.0+)?\s+G\b", f"{NAVY_R} {NAVY_G} {NAVY_B} RG", text)
-        # Replace RGB black (0 0 0 rg / 0 0 0 RG)
-        text = re.sub(r"(?m)^0(\.0+)?\s+0(\.0+)?\s+0(\.0+)?\s+rg\b", f"{NAVY_R} {NAVY_G} {NAVY_B} rg", text)
-        text = re.sub(r"(?m)^0(\.0+)?\s+0(\.0+)?\s+0(\.0+)?\s+RG\b", f"{NAVY_R} {NAVY_G} {NAVY_B} RG", text)
-        # Prepend initial state for any default uncolored elements
+        # 1. Replace standalone '0 g' (grayscale fill black) with navy RGB fill
+        text = re.sub(r"(?<![0-9.])0(\.0+)?\s+g(?![a-zA-Z0-9])", f"{NAVY_R} {NAVY_G} {NAVY_B} rg", text)
+        # 2. Replace standalone '0 G' (grayscale stroke black) with navy RGB stroke
+        text = re.sub(r"(?<![0-9.])0(\.0+)?\s+G(?![a-zA-Z0-9])", f"{NAVY_R} {NAVY_G} {NAVY_B} RG", text)
+        # 3. Replace '0 0 0 rg' (RGB fill black)
+        text = re.sub(r"(?<![0-9.])0(\.0+)?\s+0(\.0+)?\s+0(\.0+)?\s+rg(?![a-zA-Z0-9])", f"{NAVY_R} {NAVY_G} {NAVY_B} rg", text)
+        # 4. Replace '0 0 0 RG' (RGB stroke black)
+        text = re.sub(r"(?<![0-9.])0(\.0+)?\s+0(\.0+)?\s+0(\.0+)?\s+RG(?![a-zA-Z0-9])", f"{NAVY_R} {NAVY_G} {NAVY_B} RG", text)
+        # 5. Prepend global default dark navy color state
         prefix = f"{NAVY_R} {NAVY_G} {NAVY_B} rg\n{NAVY_R} {NAVY_G} {NAVY_B} RG\n"
         return (prefix + text).encode("latin1")
     except Exception as e:
@@ -105,38 +107,46 @@ def _recolor_stream_to_dark_blue(raw_bytes: bytes) -> bytes:
         return raw_bytes
 
 
-def _apply_page_color_and_crop(page, is_solution: bool = False, crop_margins: bool = True):
+def _apply_solution_color(page):
     """
-    Apply dark blue coloring to solution page streams and crop margins to remove
-    excess whitespace.
+    Apply dark navy blue coloring directly to solution page stream object.
     """
-    if is_solution:
-        c = page.get_contents()
-        if c is not None:
-            try:
-                raw = b"".join([x.get_data() for x in c]) if isinstance(c, list) else c.get_data()
-                new_raw = _recolor_stream_to_dark_blue(raw)
-                page.replace_contents(DecodedStreamObject())
-                page.get_contents().set_data(new_raw)
-            except Exception as e:
-                logger.warning(f"Error recoloring solution page: {e}")
+    try:
+        contents = page.get("/Contents")
+        if contents is not None:
+            c_obj = contents.get_object()
+            if isinstance(c_obj, list):
+                for single_stream in c_obj:
+                    stream_obj = single_stream.get_object()
+                    raw = stream_obj.get_data()
+                    stream_obj.set_data(_recolor_stream_to_dark_blue(raw))
+            else:
+                raw = c_obj.get_data()
+                c_obj.set_data(_recolor_stream_to_dark_blue(raw))
+    except Exception as e:
+        logger.warning(f"Error recoloring solution page: {e}")
 
-    if crop_margins:
-        try:
-            mb = page.mediabox
-            w = float(mb.width)
-            h = float(mb.height)
-            # Remove unnecessary margins (approx 36pt / 0.5 inch from edges)
-            # Leaving sufficient breathing room for content and header/footer overlays
-            left_crop = 32.0
-            right_crop = w - 32.0
-            bottom_crop = 34.0
-            top_crop = h - 34.0
-            if right_crop > left_crop + 100 and top_crop > bottom_crop + 100:
-                page.cropbox.lower_left = (left_crop, bottom_crop)
-                page.cropbox.upper_right = (right_crop, top_crop)
-        except Exception as e:
-            logger.warning(f"Error cropping page margins: {e}")
+
+def _trim_whitespace_margins(page):
+    """
+    Safely trim excessive empty white space around page margins without clipping
+    header/footer overlays (cropbox kept at safe bounds: 18pt margins).
+    """
+    try:
+        mb = page.mediabox
+        w = float(mb.width)
+        h = float(mb.height)
+        # 18pt (~0.25 in) margin ensures headers (at h - 25) and footers (at y=20)
+        # stay perfectly visible and clear while trimming peripheral white borders
+        left_crop = 18.0
+        right_crop = w - 18.0
+        bottom_crop = 12.0
+        top_crop = h - 12.0
+        if right_crop > left_crop + 50 and top_crop > bottom_crop + 50:
+            page.cropbox.lower_left = (left_crop, bottom_crop)
+            page.cropbox.upper_right = (right_crop, top_crop)
+    except Exception as e:
+        logger.warning(f"Error cropping page margins: {e}")
 
 
 class PdfReportBuilder:
@@ -430,7 +440,7 @@ class PdfReportBuilder:
                                 footer_center_text=ftr_center
                             )
                             page.merge_page(overlay)
-                            _apply_page_color_and_crop(page, is_solution=False, crop_margins=True)
+                            _trim_whitespace_margins(page)
 
                             writer.add_page(page)
                             if first_page:
@@ -452,6 +462,10 @@ class PdfReportBuilder:
                         first_page = True
                         for page in sol_reader.pages:
                             current_page_number += 1
+                            # 1. Apply dark blue recoloring to solution stream
+                            _apply_solution_color(page)
+
+                            # 2. Merge Header/Footer overlay
                             w = float(page.mediabox.width)
                             h = float(page.mediabox.height)
                             header_txt = f"{it.question_label} #{it.id} (Απάντηση)"
@@ -464,7 +478,7 @@ class PdfReportBuilder:
                                 footer_center_text=ftr_center
                             )
                             page.merge_page(overlay)
-                            _apply_page_color_and_crop(page, is_solution=True, crop_margins=True)
+                            _trim_whitespace_margins(page)
 
                             writer.add_page(page)
                             if first_page:
