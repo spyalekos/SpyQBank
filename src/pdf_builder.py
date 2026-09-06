@@ -384,7 +384,7 @@ class PdfReportBuilder:
                 overlay = self._create_header_footer_overlay(
                     width=w,
                     height=h,
-                    header_right_text=f"📁 {ch_title}",
+                    header_right_text=f"Κεφάλαιο: {ch_title}",
                     page_num=current_page_number,
                     header_center_text=hdr_center,
                     footer_center_text=ftr_center
@@ -393,7 +393,7 @@ class PdfReportBuilder:
 
                 writer.add_page(div_page)
                 ch_outline = writer.add_outline_item(
-                    title=f"📁 {ch_title}",
+                    title=f"{ch_title}",
                     page_number=len(writer.pages) - 1
                 )
             else:
