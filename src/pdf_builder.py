@@ -2,6 +2,7 @@
 
 import os
 import io
+import html
 import logging
 from typing import List, Optional, Callable, Dict
 from pypdf import PdfWriter, PdfReader
@@ -10,12 +11,64 @@ from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
 
 from src.models import QuestionItem
 from src.iep_api import IepApiClient
 from src.storage import StorageManager
 
 logger = logging.getLogger("SpyQBank.PdfBuilder")
+
+# Register Unicode / Greek fonts for ReportLab
+FONT_REGULAR = "GreekSans"
+FONT_BOLD = "GreekSans-Bold"
+
+def _register_greek_fonts():
+    """Find and register system fonts supporting Greek characters."""
+    candidates_regular = [
+        "C:/Windows/Fonts/arial.ttf",
+        "C:/Windows/Fonts/segoeui.ttf",
+        "C:/Windows/Fonts/calibri.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "/usr/share/fonts/TTF/DejaVuSans.ttf",
+    ]
+    candidates_bold = [
+        "C:/Windows/Fonts/arialbd.ttf",
+        "C:/Windows/Fonts/segoeuib.ttf",
+        "C:/Windows/Fonts/calibrib.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+        "/usr/share/fonts/TTF/DejaVuSans-Bold.ttf",
+    ]
+
+    reg_path = None
+    for p in candidates_regular:
+        if os.path.exists(p):
+            reg_path = p
+            break
+
+    bold_path = None
+    for p in candidates_bold:
+        if os.path.exists(p):
+            bold_path = p
+            break
+
+    if reg_path:
+        try:
+            pdfmetrics.registerFont(TTFont(FONT_REGULAR, reg_path))
+            logger.info(f"Registered {FONT_REGULAR} from {reg_path}")
+        except Exception as e:
+            logger.warning(f"Could not register {FONT_REGULAR}: {e}")
+
+    if bold_path:
+        try:
+            pdfmetrics.registerFont(TTFont(FONT_BOLD, bold_path))
+            logger.info(f"Registered {FONT_BOLD} from {bold_path}")
+        except Exception as e:
+            logger.warning(f"Could not register {FONT_BOLD}: {e}")
+
+# Run font registration
+_register_greek_fonts()
 
 
 class PdfReportBuilder:
@@ -26,7 +79,7 @@ class PdfReportBuilder:
         self.storage = storage
 
     def _create_cover_page(self, title: str, subtitle: str, metadata_lines: List[str]) -> io.BytesIO:
-        """Create a cover page using ReportLab in memory."""
+        """Create a cover page using ReportLab in memory with Greek font support."""
         packet = io.BytesIO()
         doc = SimpleDocTemplate(
             packet,
@@ -41,7 +94,7 @@ class PdfReportBuilder:
         title_style = ParagraphStyle(
             'CoverTitle',
             parent=styles['Normal'],
-            fontName='Helvetica-Bold',
+            fontName=FONT_BOLD if FONT_BOLD in pdfmetrics.getRegisteredFontNames() else 'Helvetica-Bold',
             fontSize=22,
             leading=28,
             textColor=colors.HexColor('#1E293B'),
@@ -51,17 +104,17 @@ class PdfReportBuilder:
         subtitle_style = ParagraphStyle(
             'CoverSubtitle',
             parent=styles['Normal'],
-            fontName='Helvetica',
+            fontName=FONT_REGULAR if FONT_REGULAR in pdfmetrics.getRegisteredFontNames() else 'Helvetica',
             fontSize=14,
             leading=20,
-            textColor=colors.HexColor('#3B82F6'),
+            textColor=colors.HexColor('#2563EB'),
             alignment=1,  # Center
             spaceAfter=25
         )
         meta_style = ParagraphStyle(
             'CoverMeta',
             parent=styles['Normal'],
-            fontName='Helvetica',
+            fontName=FONT_REGULAR if FONT_REGULAR in pdfmetrics.getRegisteredFontNames() else 'Helvetica',
             fontSize=11,
             leading=16,
             textColor=colors.HexColor('#64748B'),
@@ -71,13 +124,13 @@ class PdfReportBuilder:
 
         story = [
             Spacer(1, 100),
-            Paragraph(title, title_style),
-            Paragraph(subtitle, subtitle_style),
+            Paragraph(html.escape(title), title_style),
+            Paragraph(html.escape(subtitle), subtitle_style),
             Spacer(1, 40),
         ]
 
         for line in metadata_lines:
-            story.append(Paragraph(line, meta_style))
+            story.append(Paragraph(html.escape(line), meta_style))
 
         story.append(Spacer(1, 80))
         story.append(Paragraph("Τράπεζα Θεμάτων Διαβαθμισμένης Δυσκολίας - Ι.Ε.Π.", meta_style))
@@ -88,7 +141,7 @@ class PdfReportBuilder:
         return packet
 
     def _create_chapter_divider(self, chapter_name: str, question_count: int) -> io.BytesIO:
-        """Create a divider page for a chapter."""
+        """Create a divider page for a chapter with Greek font support."""
         packet = io.BytesIO()
         doc = SimpleDocTemplate(
             packet,
@@ -102,7 +155,7 @@ class PdfReportBuilder:
         ch_style = ParagraphStyle(
             'ChTitle',
             parent=styles['Normal'],
-            fontName='Helvetica-Bold',
+            fontName=FONT_BOLD if FONT_BOLD in pdfmetrics.getRegisteredFontNames() else 'Helvetica-Bold',
             fontSize=18,
             leading=24,
             textColor=colors.HexColor('#0F172A'),
@@ -112,7 +165,7 @@ class PdfReportBuilder:
         sub_style = ParagraphStyle(
             'ChSub',
             parent=styles['Normal'],
-            fontName='Helvetica',
+            fontName=FONT_REGULAR if FONT_REGULAR in pdfmetrics.getRegisteredFontNames() else 'Helvetica',
             fontSize=12,
             leading=16,
             textColor=colors.HexColor('#64748B'),
@@ -122,7 +175,7 @@ class PdfReportBuilder:
         story = [
             Paragraph("Κεφάλαιο / Ενότητα:", sub_style),
             Spacer(1, 15),
-            Paragraph(chapter_name, ch_style),
+            Paragraph(html.escape(chapter_name), ch_style),
             Spacer(1, 20),
             Paragraph(f"Σύνολο Θεμάτων: {question_count}", sub_style)
         ]
