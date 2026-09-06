@@ -2,6 +2,8 @@
 
 import os
 import sys
+import time
+import random
 import webbrowser
 import flet as ft
 
@@ -79,7 +81,10 @@ def main(page: ft.Page):
     )
     subject_dropdown = ft.Dropdown(
         label="Μάθημα",
-        width=300,
+        width=480,
+        menu_width=600,
+        enable_filter=True,
+        enable_search=True,
         content_padding=ft.Padding(10, 0, 10, 0),
         dense=True,
         disabled=True,
@@ -141,6 +146,22 @@ def main(page: ft.Page):
     settings_dialog = SettingsDialog(page, on_save_callback=on_settings_saved)
 
     # Action Controls references for disabling during operations
+    prefetch_epal_button = ft.Button(
+        content=ft.Row(
+            controls=[
+                ft.Icon(ft.Icons.CLOUD_DOWNLOAD, size=16, color=ft.Colors.WHITE),
+                ft.Text("Prefetch ΕΠΑΛ", size=12, color=ft.Colors.WHITE, weight=ft.FontWeight.W_600),
+            ],
+            spacing=4,
+            tight=True
+        ),
+        style=ft.ButtonStyle(
+            bgcolor="#4F46E5",
+            shape=ft.RoundedRectangleBorder(radius=6),
+            padding=ft.Padding(12, 8, 12, 8)
+        ),
+        tooltip="Προφόρτωση όλων των θεμάτων ΕΠΑΛ (με τυχαία καθυστέρηση 1-4s)",
+    )
     sync_button = ft.Button(
         content=ft.Row(
             controls=[
@@ -206,6 +227,9 @@ def main(page: ft.Page):
         nonlocal is_busy
         is_busy = busy
         # Disable & visually gray out top & selector bar controls
+        prefetch_epal_button.disabled = busy
+        prefetch_epal_button.opacity = 0.5 if busy else 1.0
+
         sync_button.disabled = busy
         sync_button.opacity = 0.5 if busy else 1.0
 
@@ -473,6 +497,18 @@ def main(page: ft.Page):
 
         page.run_thread(worker)
 
+    def class_sort_key(cl: ClassLevel):
+        name = cl.name.upper()
+        if "Γ" in name:
+            return 1
+        if "Β" in name:
+            return 2
+        if "Α" in name:
+            return 3
+        if "Δ" in name:
+            return 4
+        return 10
+
     def on_type_changed(e):
         if is_busy:
             return
@@ -484,9 +520,10 @@ def main(page: ft.Page):
         all_items = []
 
         if selected_school_type:
+            sorted_classes = sorted(selected_school_type.classes, key=class_sort_key)
             class_dropdown.options = [
                 ft.dropdown.Option(key=str(cl.id), text=cl.name)
-                for cl in selected_school_type.classes
+                for cl in sorted_classes
             ]
             class_dropdown.value = None
             class_dropdown.disabled = False
@@ -533,6 +570,82 @@ def main(page: ft.Page):
     subject_dropdown.on_select = on_subject_changed
 
     # --- Sync & Export Handlers ---
+
+    def handle_prefetch_epal(e):
+        if is_busy:
+            return
+
+        # ⚡ Immediately lock UI synchronously
+        set_ui_busy(True)
+        progress_bar.visible = True
+        progress_bar.value = 0.0
+        status_text.value = "Έναρξη προφόρτωσης (prefetch) μαθημάτων ΕΠΑΛ..."
+        page.update()
+
+        def worker():
+            log_console.log("=== ΕΝΑΡΞΗ PREFETCH ΟΛΩΝ ΤΩΝ ΜΑΘΗΜΑΤΩΝ ΕΠΑΛ ===")
+            epal_type = next((st for st in school_types if st.id == 3 or "ΕΠΑΛ" in st.name.upper() or "ΕΠΑ.Λ" in st.name.upper()), None)
+            if not epal_type:
+                log_console.log("Δεν βρέθηκε ο τύπος σχολείου ΕΠΑΛ στο δέντρο.", "ERROR")
+                show_snackbar("Δεν βρέθηκε ο τύπος σχολείου ΕΠΑΛ.", is_error=True)
+                progress_bar.visible = False
+                status_text.value = "Έτοιμο."
+                set_ui_busy(False)
+                page.update()
+                return
+
+            all_epal_lessons: list[tuple[ClassLevel, Subject]] = []
+            for cl in sorted(epal_type.classes, key=class_sort_key):
+                for sub in cl.lessons:
+                    all_epal_lessons.append((cl, sub))
+
+            total_subjects = len(all_epal_lessons)
+            log_console.log(f"Συνολικά μαθήματα ΕΠΑΛ προς επεξεργασία: {total_subjects}")
+
+            downloaded_cnt = 0
+            cached_cnt = 0
+            error_cnt = 0
+
+            for idx, (cl, sub) in enumerate(all_epal_lessons, start=1):
+                progress_val = idx / total_subjects
+                progress_bar.value = progress_val
+                status_text.value = f"[{idx}/{total_subjects}] {cl.name} - {sub.name}..."
+                page.update()
+
+                # Check if already cached
+                cached = storage.load_subject_items(epal_type.id, cl.id, sub.id)
+                if cached:
+                    cached_cnt += 1
+                    log_console.log(f"[{idx}/{total_subjects}] (Cache) {cl.name} -> {sub.name} ({len(cached)} θέματα)")
+                    page.update()
+                    continue
+
+                # Fetch from IEP API with rate-limiting delay
+                delay = random.uniform(1.0, 4.0)
+                time.sleep(delay)
+
+                try:
+                    fresh_items = api_client.get_subject_items(epal_type.id, cl.id, sub.id)
+                    storage.save_subject_items(epal_type.id, cl.id, sub.id, fresh_items)
+                    downloaded_cnt += 1
+                    log_console.log(f"[{idx}/{total_subjects}] (API - {delay:.1f}s delay) {cl.name} -> {sub.name}: {len(fresh_items)} θέματα", "SUCCESS")
+                except Exception as ex:
+                    error_cnt += 1
+                    log_console.log(f"[{idx}/{total_subjects}] Σφάλμα στο μάθημα {sub.name}: {ex}", "ERROR")
+
+                page.update()
+
+            log_console.log(f"=== ΟΛΟΚΛΗΡΩΣΗ PREFETCH ΕΠΑΛ ===", "SUCCESS")
+            log_console.log(f"Αποτελέσματα: {downloaded_cnt} λήφθηκαν από API, {cached_cnt} υπήρχαν στην cache, {error_cnt} σφάλματα.", "SUCCESS")
+            show_snackbar(f"Ολοκληρώθηκε το Prefetch ΕΠΑΛ ({downloaded_cnt} νέα, {cached_cnt} cache).")
+
+            progress_bar.visible = False
+            progress_bar.value = None
+            status_text.value = "Έτοιμο. Η προφόρτωση ΕΠΑΛ ολοκληρώθηκε."
+            set_ui_busy(False)
+            page.update()
+
+        page.run_thread(worker)
 
     def handle_sync_check(e):
         if is_busy:
@@ -611,6 +724,7 @@ def main(page: ft.Page):
         page.run_thread(worker)
 
     # Attach clicks
+    prefetch_epal_button.on_click = handle_prefetch_epal
     sync_button.on_click = handle_sync_check
     export_all_button.on_click = lambda e: handle_export_pdf(e, only_selected_chapter=False)
     settings_button.on_click = lambda _: settings_dialog.show() if not is_busy else None
@@ -689,6 +803,7 @@ def main(page: ft.Page):
                 # Action Buttons
                 ft.Row(
                     controls=[
+                        prefetch_epal_button,
                         sync_button,
                         export_all_button,
                         settings_button,

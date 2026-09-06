@@ -18,6 +18,7 @@ class LogConsole(ft.Container):
             size=11,
             color="#94A3B8",
             selectable=True,
+            width=700,
         )
 
         self.scroll_col = ft.Column(
