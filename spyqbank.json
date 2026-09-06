@@ -1,4 +1,5 @@
 {
-  "custom_header_title": "ΦΡΟΝΤΙΣΤΗΡΙΟ ΠΡΟΤΥΠΟ - ΤΡΑΠΕΖΑ ΘΕΜΑΤΩΝ",
-  "custom_footer_text": "Επιμέλεια: Αλέκος & Συνεργάτες | Τηλ: 210-0000000"
+  "custom_header_title": "Τίτλος",
+  "custom_footer_text": "Υποσέλιδο",
+  "trim_whitespace": false
 }

@@ -19,6 +19,7 @@ def get_config_path() -> str:
 DEFAULT_CONFIG: Dict[str, Any] = {
     "custom_header_title": "",
     "custom_footer_text": "",
+    "trim_whitespace": True,
 }
 
 def load_config() -> Dict[str, Any]:

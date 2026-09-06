@@ -376,6 +376,7 @@ class PdfReportBuilder:
         cfg = load_config()
         hdr_center = custom_header_title if custom_header_title is not None else cfg.get("custom_header_title", "")
         ftr_center = custom_footer_text if custom_footer_text is not None else cfg.get("custom_footer_text", "")
+        should_trim = cfg.get("trim_whitespace", True)
 
         # Deduplicate items
         unique_items_map = {it.id: it for it in items}
@@ -468,7 +469,8 @@ class PdfReportBuilder:
                         first_page = True
                         for page in assign_reader.pages:
                             current_page_number += 1
-                            _trim_whitespace_margins(page)
+                            if should_trim:
+                                _trim_whitespace_margins(page)
                             added_page = writer.add_page(page)
 
                             w = float(page.mediabox.width)
@@ -505,7 +507,8 @@ class PdfReportBuilder:
                             current_page_number += 1
                             # 1. Apply dark blue recoloring to solution stream
                             _apply_solution_color(page)
-                            _trim_whitespace_margins(page)
+                            if should_trim:
+                                _trim_whitespace_margins(page)
                             added_page = writer.add_page(page)
 
                             # 2. Merge Header/Footer overlay
@@ -576,13 +579,14 @@ class PdfReportBuilder:
         - Header overlay (# θέματος, custom header)
         - Footer overlay (- χχ -, custom footer)
         - Dark Navy Blue color if it is a Solution (file_type == 2)
-        - Safe margin whitespace trimming
+        - Safe margin whitespace trimming (if enabled in settings)
         """
         writer = PdfWriter()
 
         cfg = load_config()
         hdr_center = custom_header_title if custom_header_title is not None else cfg.get("custom_header_title", "")
         ftr_center = custom_footer_text if custom_footer_text is not None else cfg.get("custom_footer_text", "")
+        should_trim = cfg.get("trim_whitespace", True)
 
         is_sol = (file_type == 2)
         kind_label = "Απάντηση" if is_sol else "Εκφώνηση"
@@ -600,7 +604,8 @@ class PdfReportBuilder:
             if is_sol:
                 _apply_solution_color(page)
 
-            _trim_whitespace_margins(page)
+            if should_trim:
+                _trim_whitespace_margins(page)
             added_page = writer.add_page(page)
 
             w = float(page.mediabox.width)

@@ -29,6 +29,11 @@ class SettingsDialog:
             width=500,
         )
 
+        self.trim_switch = ft.Switch(
+            label="Αφαίρεση κενού χώρου (White Space Trimming στα περιθώρια και κενές γραμμές)",
+            value=self.cfg.get("trim_whitespace", True),
+        )
+
         self.dialog = ft.AlertDialog(
             modal=True,
             title=ft.Row(
@@ -50,6 +55,8 @@ class SettingsDialog:
                         self.header_field,
                         ft.Divider(height=5, color=ft.Colors.TRANSPARENT),
                         self.footer_field,
+                        ft.Divider(height=5, color=ft.Colors.TRANSPARENT),
+                        self.trim_switch,
                         ft.Text(
                             "Οι ρυθμίσεις αποθηκεύονται αυτόματα στο αρχείο spyqbank.json στον φάκελο της εφαρμογής.",
                             size=11,
@@ -91,6 +98,7 @@ class SettingsDialog:
         self.cfg = load_config()
         self.header_field.value = self.cfg.get("custom_header_title", "")
         self.footer_field.value = self.cfg.get("custom_footer_text", "")
+        self.trim_switch.value = self.cfg.get("trim_whitespace", True)
         if self.dialog not in self.page.overlay:
             self.page.overlay.append(self.dialog)
         self.dialog.open = True
@@ -104,6 +112,7 @@ class SettingsDialog:
         new_cfg = {
             "custom_header_title": self.header_field.value.strip(),
             "custom_footer_text": self.footer_field.value.strip(),
+            "trim_whitespace": bool(self.trim_switch.value),
         }
         save_config(new_cfg)
         self.dialog.open = False
