@@ -8,7 +8,7 @@ import random
 import logging
 from typing import List, Optional, Callable, Dict
 from pypdf import PdfWriter, PdfReader, Transformation
-from pypdf.generic import DecodedStreamObject
+from pypdf.generic import DecodedStreamObject, NameObject
 
 from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
@@ -130,21 +130,27 @@ def _recolor_stream_to_dark_blue(raw_bytes: bytes) -> bytes:
 def _apply_solution_color(page):
     """
     Apply dark navy blue coloring directly to solution page stream object.
+    Consolidates split streams into a single stream before recoloring to preserve
+    PDF operator state and prevent missing text across chunk boundaries.
     """
     try:
         contents = page.get("/Contents")
         if contents is not None:
             c_obj = contents.get_object()
             if isinstance(c_obj, list):
-                for single_stream in c_obj:
-                    stream_obj = single_stream.get_object()
-                    raw = stream_obj.get_data()
-                    stream_obj.set_data(_recolor_stream_to_dark_blue(raw))
+                # Multiple stream chunks: combine them first so operator states (BT/ET, cm, etc.)
+                # are preserved continuously, avoiding corrupted/missing text.
+                all_data = b"\n".join([s.get_object().get_data() for s in c_obj])
+                recolored = _recolor_stream_to_dark_blue(all_data)
+                new_stream = DecodedStreamObject()
+                new_stream.set_data(recolored)
+                page[NameObject("/Contents")] = new_stream
             else:
                 raw = c_obj.get_data()
                 c_obj.set_data(_recolor_stream_to_dark_blue(raw))
     except Exception as e:
         logger.warning(f"Error recoloring solution page: {e}")
+
 
 
 def _get_page_content_bounds(page):
