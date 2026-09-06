@@ -963,7 +963,8 @@ def main(page: ft.Page):
                 ),
                 log_console
             ],
-            spacing=4
+            spacing=4,
+            horizontal_alignment=ft.CrossAxisAlignment.STRETCH,
         ),
         bgcolor=ft.Colors.WHITE,
         border=ft.Border.only(top=ft.BorderSide(1, BORDER_COLOR)),
