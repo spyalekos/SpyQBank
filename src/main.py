@@ -252,7 +252,7 @@ def main(page: ft.Page):
             kind_slug = "assignment" if file_type == 1 else "solution"
             log_console.log(f"Προετοιμασία PDF #{item.id} ({kind_label}) με τίτλους & χρωματισμό...")
             processed_filename = f"IEP_{item.subject_id}_{item.id}_{kind_slug}_view.pdf"
-            dest = os.path.join(storage.pdf_dir, processed_filename)
+            dest = os.path.join(storage.pdf_cache_dir, processed_filename)
             try:
                 final_pdf = pdf_builder.build_single_item_report(
                     item=item,
