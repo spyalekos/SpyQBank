@@ -525,6 +525,7 @@ class PdfReportBuilder:
         hdr_center = custom_header_title if custom_header_title is not None else cfg.get("custom_header_title", "")
         ftr_center = custom_footer_text if custom_footer_text is not None else cfg.get("custom_footer_text", "")
         should_trim = cfg.get("trim_whitespace", True)
+        include_chapter_covers = cfg.get("include_chapter_covers", True)
 
         # Deduplicate items
         unique_items_map = {it.id: it for it in items}
@@ -563,7 +564,7 @@ class PdfReportBuilder:
             # SMART CONTINUOUS PACKING MODE (Trimming ON)
             # ==========================================
             for ch_title, ch_items in chapters_map.items():
-                if len(chapters_map) > 1 and not chapter_name:
+                if include_chapter_covers and len(chapters_map) > 1 and not chapter_name:
                     current_page_number += 1
                     ch_divider_stream = self._create_chapter_divider(ch_title, len(ch_items))
                     div_reader = PdfReader(ch_divider_stream)
@@ -594,6 +595,12 @@ class PdfReportBuilder:
                 current_packed_page = writer.add_blank_page(width=A4[0], height=A4[1])
                 current_y = 790.0
                 page_has_content = False
+
+                if ch_outline is None and len(chapters_map) > 1 and not chapter_name:
+                    ch_outline = writer.add_outline_item(
+                        title=f"{ch_title}",
+                        page_number=len(writer.pages) - 1
+                    )
 
                 for it in ch_items:
                     processed += 1
@@ -709,7 +716,7 @@ class PdfReportBuilder:
             # CLASSIC 1-PAGE-PER-SLICE MODE (Trimming OFF)
             # ==========================================
             for ch_title, ch_items in chapters_map.items():
-                if len(chapters_map) > 1 and not chapter_name:
+                if include_chapter_covers and len(chapters_map) > 1 and not chapter_name:
                     current_page_number += 1
                     ch_divider_stream = self._create_chapter_divider(ch_title, len(ch_items))
                     div_reader = PdfReader(ch_divider_stream)
@@ -765,6 +772,12 @@ class PdfReportBuilder:
                                 current_page_number += 1
                                 added_page = writer.add_page(page)
 
+                                if ch_outline is None and len(chapters_map) > 1 and not chapter_name:
+                                    ch_outline = writer.add_outline_item(
+                                        title=f"{ch_title}",
+                                        page_number=len(writer.pages) - 1
+                                    )
+
                                 w = float(page.mediabox.width)
                                 h = float(page.mediabox.height)
                                 header_txt = f"{it.question_label} #{it.id} (Εκφώνηση)"
@@ -799,6 +812,12 @@ class PdfReportBuilder:
                                 current_page_number += 1
                                 _apply_solution_color(page)
                                 added_page = writer.add_page(page)
+
+                                if ch_outline is None and len(chapters_map) > 1 and not chapter_name:
+                                    ch_outline = writer.add_outline_item(
+                                        title=f"{ch_title}",
+                                        page_number=len(writer.pages) - 1
+                                    )
 
                                 w = float(page.mediabox.width)
                                 h = float(page.mediabox.height)

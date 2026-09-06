@@ -34,6 +34,11 @@ class SettingsDialog:
             value=self.cfg.get("trim_whitespace", True),
         )
 
+        self.chapter_dividers_switch = ft.Switch(
+            label="Σελίδες διαχωρισμού κεφαλαίων (Chapter Dividers)",
+            value=self.cfg.get("include_chapter_covers", True),
+        )
+
         self.dialog = ft.AlertDialog(
             modal=True,
             title=ft.Row(
@@ -57,6 +62,8 @@ class SettingsDialog:
                         self.footer_field,
                         ft.Divider(height=5, color=ft.Colors.TRANSPARENT),
                         self.trim_switch,
+                        ft.Divider(height=5, color=ft.Colors.TRANSPARENT),
+                        self.chapter_dividers_switch,
                         ft.Text(
                             "Οι ρυθμίσεις αποθηκεύονται αυτόματα στο αρχείο spyqbank.json στον φάκελο της εφαρμογής.",
                             size=11,
@@ -99,6 +106,7 @@ class SettingsDialog:
         self.header_field.value = self.cfg.get("custom_header_title", "")
         self.footer_field.value = self.cfg.get("custom_footer_text", "")
         self.trim_switch.value = self.cfg.get("trim_whitespace", True)
+        self.chapter_dividers_switch.value = self.cfg.get("include_chapter_covers", True)
         if self.dialog not in self.page.overlay:
             self.page.overlay.append(self.dialog)
         self.dialog.open = True
@@ -113,6 +121,7 @@ class SettingsDialog:
             "custom_header_title": self.header_field.value.strip(),
             "custom_footer_text": self.footer_field.value.strip(),
             "trim_whitespace": bool(self.trim_switch.value),
+            "include_chapter_covers": bool(self.chapter_dividers_switch.value),
         }
         save_config(new_cfg)
         self.dialog.open = False
