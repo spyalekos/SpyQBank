@@ -140,9 +140,97 @@ def main(page: ft.Page):
 
     settings_dialog = SettingsDialog(page, on_save_callback=on_settings_saved)
 
+    # Action Controls references for disabling during operations
+    sync_button = ft.Button(
+        content=ft.Row(
+            controls=[
+                ft.Icon(ft.Icons.REFRESH, size=16, color=ft.Colors.WHITE),
+                ft.Text("Έλεγχος Αλλαγών", size=12, color=ft.Colors.WHITE, weight=ft.FontWeight.W_600),
+            ],
+            spacing=4,
+            tight=True
+        ),
+        style=ft.ButtonStyle(
+            bgcolor="#0284C7",
+            shape=ft.RoundedRectangleBorder(radius=6),
+            padding=ft.Padding(12, 8, 12, 8)
+        ),
+        tooltip="Συγχρονισμός & έλεγχος για νέα/τροποποιημένα θέματα",
+    )
+    export_all_button = ft.Button(
+        content=ft.Row(
+            controls=[
+                ft.Icon(ft.Icons.PICTURE_AS_PDF, size=16, color=ft.Colors.WHITE),
+                ft.Text("Εξαγωγή Όλων σε PDF", size=12, color=ft.Colors.WHITE, weight=ft.FontWeight.W_600),
+            ],
+            spacing=4,
+            tight=True
+        ),
+        style=ft.ButtonStyle(
+            bgcolor="#D97706",
+            shape=ft.RoundedRectangleBorder(radius=6),
+            padding=ft.Padding(12, 8, 12, 8)
+        ),
+        tooltip="Δημιουργία ενιαίου PDF με όλα τα θέματα και τις λύσεις τους",
+    )
+    settings_button = ft.IconButton(
+        icon=ft.Icons.SETTINGS,
+        tooltip="Ρυθμίσεις Επικεφαλίδας & Υποσέλιδου PDF",
+        icon_color=ft.Colors.WHITE,
+    )
+    folder_button = ft.IconButton(
+        icon=ft.Icons.FOLDER_OPEN,
+        tooltip="Άνοιγμα φακέλου Downloads",
+        icon_color=ft.Colors.WHITE,
+    )
+    export_chapter_button = ft.Button(
+        content=ft.Row(
+            controls=[
+                ft.Icon(ft.Icons.FILE_DOWNLOAD_OUTLINED, size=15, color="#1E40AF"),
+                ft.Text("PDF Κεφαλαίου", size=12, color="#1E40AF", weight=ft.FontWeight.BOLD),
+            ],
+            spacing=4,
+            tight=True
+        ),
+        style=ft.ButtonStyle(
+            bgcolor="#DBEAFE",
+            shape=ft.RoundedRectangleBorder(radius=6),
+            padding=ft.Padding(10, 6, 10, 6)
+        ),
+        tooltip="Εξαγωγή μόνο του επιλεγμένου κεφαλαίου σε PDF",
+    )
+
+    is_busy = False
+
+    def set_ui_busy(busy: bool):
+        nonlocal is_busy
+        is_busy = busy
+        # Disable top & selector bar controls
+        sync_button.disabled = busy
+        export_all_button.disabled = busy
+        settings_button.disabled = busy
+        folder_button.disabled = busy
+        export_chapter_button.disabled = busy
+        type_dropdown.disabled = busy
+        class_dropdown.disabled = busy or (selected_school_type is None)
+        subject_dropdown.disabled = busy or (selected_class is None)
+        chapter_dropdown.disabled = busy or (selected_subject is None)
+        qtype_dropdown.disabled = busy
+        search_field.disabled = busy
+
+        # Disable all item cards
+        for card in items_column.controls:
+            if hasattr(card, "set_enabled"):
+                card.set_enabled(not busy)
+
+        page.update()
+
     # --- Actions & Handlers ---
 
     def handle_view_pdf(item: QuestionItem, file_type: int):
+        if is_busy:
+            return
+
         def worker():
             kind_label = "Εκφώνηση" if file_type == 1 else "Λύση"
             log_console.log(f"Άνοιγμα PDF #{item.id} ({kind_label})...")
@@ -166,6 +254,9 @@ def main(page: ft.Page):
         page.run_thread(worker)
 
     def handle_download_pdf(item: QuestionItem, file_type: int):
+        if is_busy:
+            return
+
         def worker():
             kind_label = "εκφωνηση" if file_type == 1 else "απαντηση"
             downloads_dir = os.path.abspath("downloads")
@@ -241,6 +332,8 @@ def main(page: ft.Page):
                     on_view_pdf=handle_view_pdf,
                     on_download=handle_download_pdf
                 )
+                if is_busy:
+                    card.set_enabled(False)
                 items_column.controls.append(card)
 
         # Update summary banner
@@ -270,9 +363,13 @@ def main(page: ft.Page):
     search_field.on_change = on_search_changed
 
     def load_subject_items(subject: Subject, force_refresh: bool = False):
+        if is_busy:
+            return
+
         def worker():
             nonlocal all_items, selected_subject
             selected_subject = subject
+            set_ui_busy(True)
             progress_bar.visible = True
             status_text.value = f"Φόρτωση θεμάτων για: {subject.name}..."
             page.update()
@@ -325,15 +422,17 @@ def main(page: ft.Page):
                 for ch in sorted_chapters
             ]
             chapter_dropdown.value = "ALL"
-            chapter_dropdown.disabled = False
 
             progress_bar.visible = False
             status_text.value = f"Φορτώθηκαν {len(all_items)} θέματα για: {subject.name}."
+            set_ui_busy(False)
             update_filtered_list()
 
         page.run_thread(worker)
 
     def on_type_changed(e):
+        if is_busy:
+            return
         nonlocal selected_school_type, selected_class, selected_subject, all_items
         type_id = int(type_dropdown.value)
         selected_school_type = next((st for st in school_types if st.id == type_id), None)
@@ -356,6 +455,8 @@ def main(page: ft.Page):
         page.update()
 
     def on_class_changed(e):
+        if is_busy:
+            return
         nonlocal selected_class, selected_subject, all_items
         if not selected_school_type or not class_dropdown.value:
             return
@@ -375,6 +476,8 @@ def main(page: ft.Page):
         page.update()
 
     def on_subject_changed(e):
+        if is_busy:
+            return
         if not selected_class or not subject_dropdown.value:
             return
         subject_id = int(subject_dropdown.value)
@@ -389,17 +492,22 @@ def main(page: ft.Page):
     # --- Sync & Export Handlers ---
 
     def handle_sync_check(e):
+        if is_busy:
+            return
         if not selected_subject:
             show_snackbar("Παρακαλώ επιλέξτε πρώτα μάθημα.", is_error=True)
             return
         load_subject_items(selected_subject, force_refresh=True)
 
     def handle_export_pdf(e, only_selected_chapter: bool = False):
+        if is_busy:
+            return
         if not selected_subject or not all_items:
             show_snackbar("Δεν υπάρχουν θέματα για εξαγωγή.", is_error=True)
             return
 
         def worker():
+            set_ui_busy(True)
             progress_bar.visible = True
             target_chapter = selected_chapter if (only_selected_chapter and selected_chapter != "ALL") else None
             items_to_export = [
@@ -410,6 +518,7 @@ def main(page: ft.Page):
             if not items_to_export:
                 show_snackbar("Δεν βρέθηκαν θέματα για το επιλεγμένο κεφάλαιο.", is_error=True)
                 progress_bar.visible = False
+                set_ui_busy(False)
                 page.update()
                 return
 
@@ -449,9 +558,18 @@ def main(page: ft.Page):
             finally:
                 progress_bar.visible = False
                 status_text.value = "Έτοιμο."
+                set_ui_busy(False)
                 page.update()
 
         page.run_thread(worker)
+
+    # Attach clicks
+    sync_button.on_click = handle_sync_check
+    export_all_button.on_click = lambda e: handle_export_pdf(e, only_selected_chapter=False)
+    settings_button.on_click = lambda _: settings_dialog.show() if not is_busy else None
+    folder_button.on_click = lambda _: (os.startfile(os.path.abspath("downloads")) if sys.platform == "win32" else webbrowser.open(f"file://{os.path.abspath('downloads')}")) if not is_busy else None
+    export_chapter_button.on_click = lambda e: handle_export_pdf(e, only_selected_chapter=True)
+
 
     # --- Initial Data Load ---
 
@@ -524,52 +642,10 @@ def main(page: ft.Page):
                 # Action Buttons
                 ft.Row(
                     controls=[
-                        ft.Button(
-                            content=ft.Row(
-                                controls=[
-                                    ft.Icon(ft.Icons.REFRESH, size=16, color=ft.Colors.WHITE),
-                                    ft.Text("Έλεγχος Αλλαγών", size=12, color=ft.Colors.WHITE, weight=ft.FontWeight.W_600),
-                                ],
-                                spacing=4,
-                                tight=True
-                            ),
-                            style=ft.ButtonStyle(
-                                bgcolor="#0284C7",
-                                shape=ft.RoundedRectangleBorder(radius=6),
-                                padding=ft.Padding(12, 8, 12, 8)
-                            ),
-                            tooltip="Συγχρονισμός & έλεγχος για νέα/τροποποιημένα θέματα",
-                            on_click=handle_sync_check
-                        ),
-                        ft.Button(
-                            content=ft.Row(
-                                controls=[
-                                    ft.Icon(ft.Icons.PICTURE_AS_PDF, size=16, color=ft.Colors.WHITE),
-                                    ft.Text("Εξαγωγή Όλων σε PDF", size=12, color=ft.Colors.WHITE, weight=ft.FontWeight.W_600),
-                                ],
-                                spacing=4,
-                                tight=True
-                            ),
-                            style=ft.ButtonStyle(
-                                bgcolor="#D97706",
-                                shape=ft.RoundedRectangleBorder(radius=6),
-                                padding=ft.Padding(12, 8, 12, 8)
-                            ),
-                            tooltip="Δημιουργία ενιαίου PDF με όλα τα θέματα και τις λύσεις τους",
-                            on_click=lambda e: handle_export_pdf(e, only_selected_chapter=False)
-                        ),
-                        ft.IconButton(
-                            icon=ft.Icons.SETTINGS,
-                            tooltip="Ρυθμίσεις Επικεφαλίδας & Υποσέλιδου PDF",
-                            icon_color=ft.Colors.WHITE,
-                            on_click=lambda _: settings_dialog.show()
-                        ),
-                        ft.IconButton(
-                            icon=ft.Icons.FOLDER_OPEN,
-                            tooltip="Άνοιγμα φακέλου Downloads",
-                            icon_color=ft.Colors.WHITE,
-                            on_click=lambda _: os.startfile(os.path.abspath("downloads")) if sys.platform == "win32" else webbrowser.open(f"file://{os.path.abspath('downloads')}")
-                        )
+                        sync_button,
+                        export_all_button,
+                        settings_button,
+                        folder_button
                     ],
                     spacing=8
                 )
@@ -597,23 +673,7 @@ def main(page: ft.Page):
                 ft.Row(
                     controls=[
                         chapter_dropdown,
-                        ft.Button(
-                            content=ft.Row(
-                                controls=[
-                                    ft.Icon(ft.Icons.FILE_DOWNLOAD_OUTLINED, size=15, color="#1E40AF"),
-                                    ft.Text("PDF Κεφαλαίου", size=12, color="#1E40AF", weight=ft.FontWeight.BOLD),
-                                ],
-                                spacing=4,
-                                tight=True
-                            ),
-                            style=ft.ButtonStyle(
-                                bgcolor="#DBEAFE",
-                                shape=ft.RoundedRectangleBorder(radius=6),
-                                padding=ft.Padding(10, 6, 10, 6)
-                            ),
-                            tooltip="Εξαγωγή μόνο του επιλεγμένου κεφαλαίου σε PDF",
-                            on_click=lambda e: handle_export_pdf(e, only_selected_chapter=True)
-                        ),
+                        export_chapter_button,
                         qtype_dropdown,
                         search_field,
                     ],

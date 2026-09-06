@@ -2,11 +2,13 @@
 
 import os
 import io
+import re
 import html
 import random
 import logging
 from typing import List, Optional, Callable, Dict
 from pypdf import PdfWriter, PdfReader
+from pypdf.generic import DecodedStreamObject
 
 from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
@@ -26,6 +28,12 @@ logger = logging.getLogger("SpyQBank.PdfBuilder")
 # Register Unicode / Greek fonts for ReportLab
 FONT_REGULAR = "GreekSans"
 FONT_BOLD = "GreekSans-Bold"
+
+# Dark Blue color for Solution text / lines (RGB values in 0.0 - 1.0 range)
+# #0F2D6B or #0D338C (Rich Dark Navy Blue)
+NAVY_R = "0.06"
+NAVY_G = "0.20"
+NAVY_B = "0.58"
 
 
 def _register_greek_fonts():
@@ -74,6 +82,61 @@ def _register_greek_fonts():
 
 # Run font registration
 _register_greek_fonts()
+
+
+def _recolor_stream_to_dark_blue(raw_bytes: bytes) -> bytes:
+    """
+    Recolor black / dark grayscale text, fills and strokes to dark blue (#0F2D6B).
+    Assignment retains black text, Solution is converted to dark blue.
+    """
+    try:
+        text = raw_bytes.decode("latin1", errors="ignore")
+        # Replace grayscale 0 g / 0 G with dark blue
+        text = re.sub(r"(?m)^0(\.0+)?\s+g\b", f"{NAVY_R} {NAVY_G} {NAVY_B} rg", text)
+        text = re.sub(r"(?m)^0(\.0+)?\s+G\b", f"{NAVY_R} {NAVY_G} {NAVY_B} RG", text)
+        # Replace RGB black (0 0 0 rg / 0 0 0 RG)
+        text = re.sub(r"(?m)^0(\.0+)?\s+0(\.0+)?\s+0(\.0+)?\s+rg\b", f"{NAVY_R} {NAVY_G} {NAVY_B} rg", text)
+        text = re.sub(r"(?m)^0(\.0+)?\s+0(\.0+)?\s+0(\.0+)?\s+RG\b", f"{NAVY_R} {NAVY_G} {NAVY_B} RG", text)
+        # Prepend initial state for any default uncolored elements
+        prefix = f"{NAVY_R} {NAVY_G} {NAVY_B} rg\n{NAVY_R} {NAVY_G} {NAVY_B} RG\n"
+        return (prefix + text).encode("latin1")
+    except Exception as e:
+        logger.warning(f"Failed to recolor stream: {e}")
+        return raw_bytes
+
+
+def _apply_page_color_and_crop(page, is_solution: bool = False, crop_margins: bool = True):
+    """
+    Apply dark blue coloring to solution page streams and crop margins to remove
+    excess whitespace.
+    """
+    if is_solution:
+        c = page.get_contents()
+        if c is not None:
+            try:
+                raw = b"".join([x.get_data() for x in c]) if isinstance(c, list) else c.get_data()
+                new_raw = _recolor_stream_to_dark_blue(raw)
+                page.replace_contents(DecodedStreamObject())
+                page.get_contents().set_data(new_raw)
+            except Exception as e:
+                logger.warning(f"Error recoloring solution page: {e}")
+
+    if crop_margins:
+        try:
+            mb = page.mediabox
+            w = float(mb.width)
+            h = float(mb.height)
+            # Remove unnecessary margins (approx 36pt / 0.5 inch from edges)
+            # Leaving sufficient breathing room for content and header/footer overlays
+            left_crop = 32.0
+            right_crop = w - 32.0
+            bottom_crop = 34.0
+            top_crop = h - 34.0
+            if right_crop > left_crop + 100 and top_crop > bottom_crop + 100:
+                page.cropbox.lower_left = (left_crop, bottom_crop)
+                page.cropbox.upper_right = (right_crop, top_crop)
+        except Exception as e:
+            logger.warning(f"Error cropping page margins: {e}")
 
 
 class PdfReportBuilder:
@@ -251,8 +314,12 @@ class PdfReportBuilder:
     ) -> str:
         """
         Merge all items (Question + Solution paired sequentially) into a single PDF,
-        with custom centered header title, top-right question header, centered footer text,
-        and bottom-right pagination (- χχ -).
+        with:
+        - Black font for Assignments (Εκφωνήσεις)
+        - Dark Blue font for Solutions (Απαντήσεις)
+        - White space trimming / margin cropping
+        - Custom centered header title, top-right question header, centered footer text,
+          and bottom-right pagination (- χχ -).
         Includes automatic fallback with a 3-digit random number if the target file is locked.
         """
         writer = PdfWriter()
@@ -276,7 +343,7 @@ class PdfReportBuilder:
         cover_sub = chapter_name if chapter_name else "Όλα τα Κεφάλαια"
         meta = [
             f"Συνολικά Θέματα: {total_items}",
-            "Περιλαμβάνονται: Εκφωνήσεις & Ενδεικτικές Απαντήσεις",
+            "Περιλαμβάνονται: Εκφωνήσεις (Μαύρο) & Ενδεικτικές Απαντήσεις (Μπλε)",
         ]
         cover_stream = self._create_cover_page(cover_title, cover_sub, meta)
         cover_reader = PdfReader(cover_stream)
@@ -343,7 +410,7 @@ class PdfReportBuilder:
                 except Exception as e:
                     logger.warning(f"Could not download solution PDF for #{it.id}: {e}")
 
-                # Add Assignment PDF pages with Header & Footer overlay
+                # Add Assignment PDF pages (Black text) with Header & Footer overlay
                 q_outline = None
                 if os.path.exists(assign_path) and os.path.getsize(assign_path) > 0:
                     try:
@@ -363,6 +430,7 @@ class PdfReportBuilder:
                                 footer_center_text=ftr_center
                             )
                             page.merge_page(overlay)
+                            _apply_page_color_and_crop(page, is_solution=False, crop_margins=True)
 
                             writer.add_page(page)
                             if first_page:
@@ -377,7 +445,7 @@ class PdfReportBuilder:
                     except Exception as e:
                         logger.error(f"Failed to append assignment PDF #{it.id}: {e}")
 
-                # Add Solution PDF pages directly below with Header & Footer overlay
+                # Add Solution PDF pages directly below (Recolored to Dark Blue) with Header & Footer overlay
                 if os.path.exists(sol_path) and os.path.getsize(sol_path) > 0:
                     try:
                         sol_reader = PdfReader(sol_path)
@@ -396,6 +464,7 @@ class PdfReportBuilder:
                                 footer_center_text=ftr_center
                             )
                             page.merge_page(overlay)
+                            _apply_page_color_and_crop(page, is_solution=True, crop_margins=True)
 
                             writer.add_page(page)
                             if first_page:
@@ -438,3 +507,4 @@ class PdfReportBuilder:
             progress_callback("Ολοκληρώθηκε με επιτυχία!", 1.0)
 
         return final_path
+

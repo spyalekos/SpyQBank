@@ -122,6 +122,69 @@ class QuestionCard(ft.Container):
                 )
             )
 
+        # Store button references so they can be enabled/disabled during export
+        self.view_assign_btn = ft.Button(
+            content=ft.Row(
+                controls=[
+                    ft.Icon(ft.Icons.PICTURE_AS_PDF, size=15, color=ft.Colors.WHITE),
+                    ft.Text("Προβολή PDF", size=12, color=ft.Colors.WHITE, weight=ft.FontWeight.W_500),
+                ],
+                spacing=4,
+                tight=True
+            ),
+            style=ft.ButtonStyle(
+                bgcolor="#2563EB",
+                padding=ft.Padding(12, 6, 12, 6),
+                shape=ft.RoundedRectangleBorder(radius=6)
+            ),
+            on_click=lambda _: self.on_view_pdf(self.item, 1)
+        )
+        self.dl_assign_btn = ft.IconButton(
+            icon=ft.Icons.DOWNLOAD,
+            tooltip="Αποθήκευση PDF Εκφώνησης",
+            icon_size=18,
+            icon_color="#2563EB",
+            on_click=lambda _: self.on_download(self.item, 1)
+        )
+        self.doc_assign_btn = ft.IconButton(
+            icon=ft.Icons.TEXT_SNIPPET_OUTLINED,
+            tooltip="Λήψη Word (.docx/.doc)",
+            icon_size=18,
+            icon_color=TEXT_MUTED,
+            on_click=lambda _: self._open_url(self.item.get_assignment_doc_url())
+        ) if item.has_assignment_doc else None
+
+        self.view_sol_btn = ft.Button(
+            content=ft.Row(
+                controls=[
+                    ft.Icon(ft.Icons.CHECK_CIRCLE_OUTLINE, size=15, color=ft.Colors.WHITE),
+                    ft.Text("Προβολή Λύσης", size=12, color=ft.Colors.WHITE, weight=ft.FontWeight.W_500),
+                ],
+                spacing=4,
+                tight=True
+            ),
+            style=ft.ButtonStyle(
+                bgcolor="#059669",
+                padding=ft.Padding(12, 6, 12, 6),
+                shape=ft.RoundedRectangleBorder(radius=6)
+            ),
+            on_click=lambda _: self.on_view_pdf(self.item, 2)
+        )
+        self.dl_sol_btn = ft.IconButton(
+            icon=ft.Icons.DOWNLOAD,
+            tooltip="Αποθήκευση PDF Λύσης",
+            icon_size=18,
+            icon_color="#059669",
+            on_click=lambda _: self.on_download(self.item, 2)
+        )
+        self.doc_sol_btn = ft.IconButton(
+            icon=ft.Icons.TEXT_SNIPPET_OUTLINED,
+            tooltip="Λήψη Word (.docx/.doc) Λύσης",
+            icon_size=18,
+            icon_color=TEXT_MUTED,
+            on_click=lambda _: self._open_url(self.item.get_solution_doc_url())
+        ) if item.has_solution_doc else None
+
         # 4. Action Section: Question & Solution Pairs (Βασικότερο Όλων)
         qa_section = ft.Container(
             content=ft.Row(
@@ -139,36 +202,9 @@ class QuestionCard(ft.Container):
                                 ),
                                 ft.Row(
                                     controls=[
-                                        ft.Button(
-                                            content=ft.Row(
-                                                controls=[
-                                                    ft.Icon(ft.Icons.PICTURE_AS_PDF, size=15, color=ft.Colors.WHITE),
-                                                    ft.Text("Προβολή PDF", size=12, color=ft.Colors.WHITE, weight=ft.FontWeight.W_500),
-                                                ],
-                                                spacing=4,
-                                                tight=True
-                                            ),
-                                            style=ft.ButtonStyle(
-                                                bgcolor="#2563EB",
-                                                padding=ft.Padding(12, 6, 12, 6),
-                                                shape=ft.RoundedRectangleBorder(radius=6)
-                                            ),
-                                            on_click=lambda _: self.on_view_pdf(self.item, 1)
-                                        ),
-                                        ft.IconButton(
-                                            icon=ft.Icons.DOWNLOAD,
-                                            tooltip="Αποθήκευση PDF Εκφώνησης",
-                                            icon_size=18,
-                                            icon_color="#2563EB",
-                                            on_click=lambda _: self.on_download(self.item, 1)
-                                        ),
-                                        ft.IconButton(
-                                            icon=ft.Icons.TEXT_SNIPPET_OUTLINED,
-                                            tooltip="Λήψη Word (.docx/.doc)",
-                                            icon_size=18,
-                                            icon_color=TEXT_MUTED,
-                                            on_click=lambda _: self._open_url(self.item.get_assignment_doc_url())
-                                        ) if item.has_assignment_doc else ft.Container()
+                                        self.view_assign_btn,
+                                        self.dl_assign_btn,
+                                        *([self.doc_assign_btn] if self.doc_assign_btn else [])
                                     ],
                                     spacing=4
                                 )
@@ -195,36 +231,9 @@ class QuestionCard(ft.Container):
                                 ),
                                 ft.Row(
                                     controls=[
-                                        ft.Button(
-                                            content=ft.Row(
-                                                controls=[
-                                                    ft.Icon(ft.Icons.CHECK_CIRCLE_OUTLINE, size=15, color=ft.Colors.WHITE),
-                                                    ft.Text("Προβολή Λύσης", size=12, color=ft.Colors.WHITE, weight=ft.FontWeight.W_500),
-                                                ],
-                                                spacing=4,
-                                                tight=True
-                                            ),
-                                            style=ft.ButtonStyle(
-                                                bgcolor="#059669",
-                                                padding=ft.Padding(12, 6, 12, 6),
-                                                shape=ft.RoundedRectangleBorder(radius=6)
-                                            ),
-                                            on_click=lambda _: self.on_view_pdf(self.item, 2)
-                                        ),
-                                        ft.IconButton(
-                                            icon=ft.Icons.DOWNLOAD,
-                                            tooltip="Αποθήκευση PDF Λύσης",
-                                            icon_size=18,
-                                            icon_color="#059669",
-                                            on_click=lambda _: self.on_download(self.item, 2)
-                                        ),
-                                        ft.IconButton(
-                                            icon=ft.Icons.TEXT_SNIPPET_OUTLINED,
-                                            tooltip="Λήψη Word (.docx/.doc) Λύσης",
-                                            icon_size=18,
-                                            icon_color=TEXT_MUTED,
-                                            on_click=lambda _: self._open_url(self.item.get_solution_doc_url())
-                                        ) if item.has_solution_doc else ft.Container()
+                                        self.view_sol_btn,
+                                        self.dl_sol_btn,
+                                        *([self.doc_sol_btn] if self.doc_sol_btn else [])
                                     ],
                                     spacing=4
                                 )
@@ -267,8 +276,20 @@ class QuestionCard(ft.Container):
             )
         )
 
+    def set_enabled(self, enabled: bool):
+        """Enable or disable all action buttons on this card."""
+        self.view_assign_btn.disabled = not enabled
+        self.dl_assign_btn.disabled = not enabled
+        if self.doc_assign_btn:
+            self.doc_assign_btn.disabled = not enabled
+        self.view_sol_btn.disabled = not enabled
+        self.dl_sol_btn.disabled = not enabled
+        if self.doc_sol_btn:
+            self.doc_sol_btn.disabled = not enabled
+
     def _open_url(self, url: str):
         try:
             webbrowser.open(url)
         except Exception:
             pass
+

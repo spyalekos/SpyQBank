@@ -74,7 +74,11 @@
 
 ## 📍 Τελευταία Γνωστή Κατάσταση (Last Known State)
 
-### 🚀 ΤΡΕΧΟΥΣΑ ΕΚΔΟΣΗ: v1.0.6 (SpyQBank)
+### 🚀 ΤΡΕΧΟΥΣΑ ΕΚΔΟΣΗ: v1.0.7 (SpyQBank)
+- **UI Busy State Lock, Σκούρο Μπλε στις Απαντήσεις & Whitespace Crop (v1.0.7)**:
+  - **Disable Buttons**: Προσθήκη `set_ui_busy(True/False)` στο `src/main.py` και `QuestionCard.set_enabled(...)` ώστε όλα τα κουμπιά και επιλογείς να απενεργοποιούνται κατά τη δημιουργία PDF και συγχρονισμό, αποτρέποντας πολλαπλά/απρόσεκτα κλικ.
+  - **Χρωματική Διάκριση**: Μαύρα γράμματα στις Εκφωνήσεις και σκούρα μπλε (`#0F2D6B`) στις Απαντήσεις/Λύσεις μέσω δυναμικού recoloring του PDF stream (`_apply_page_color_and_crop` στο `src/pdf_builder.py`).
+  - **White Space Trimming**: Αυτόματο cropbox trimming στα περιθώρια των σελίδων PDF για αφαίρεση του περιττού κενού χώρου.
 - **Τεκμηρίωση & Καταγραφή Gotchas στο `flet.md` (v1.0.6)**:
   - Καταγράφηκε αναλυτικά στην «Ενότητα 3: 🐛 ΕΠΙΛΥΜΕΝΑ ΣΦΑΛΜΑΤΑ & GOTCHAS» του `flet.md` η υποχρεωτική χρήση του `content=ft.Text(...)` αντί για `text="..."` σε όλους τους τύπους κουμπιών του Flet v0.80+ (`Button`, `TextButton`, `FilledButton`, `ElevatedButton`, `OutlinedButton`).
   - Ενημερώθηκαν όλες οι αναφορές εκδόσεων (`pyproject.toml`, `src/version.py`, `README.md`, `instructions.md`).
