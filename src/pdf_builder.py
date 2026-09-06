@@ -378,6 +378,9 @@ class PdfReportBuilder:
                 div_reader = PdfReader(ch_divider_stream)
                 div_page = div_reader.pages[0]
 
+                # Add chapter divider page to writer first (attaching to writer eliminates pypdf DeprecationWarning)
+                added_div_page = writer.add_page(div_page)
+
                 # Overlay on chapter divider
                 w = float(div_page.mediabox.width)
                 h = float(div_page.mediabox.height)
@@ -389,9 +392,8 @@ class PdfReportBuilder:
                     header_center_text=hdr_center,
                     footer_center_text=ftr_center
                 )
-                div_page.merge_page(overlay)
+                added_div_page.merge_page(overlay)
 
-                writer.add_page(div_page)
                 ch_outline = writer.add_outline_item(
                     title=f"{ch_title}",
                     page_number=len(writer.pages) - 1
@@ -428,6 +430,9 @@ class PdfReportBuilder:
                         first_page = True
                         for page in assign_reader.pages:
                             current_page_number += 1
+                            _trim_whitespace_margins(page)
+                            added_page = writer.add_page(page)
+
                             w = float(page.mediabox.width)
                             h = float(page.mediabox.height)
                             header_txt = f"{it.question_label} #{it.id} (Εκφώνηση)"
@@ -439,10 +444,8 @@ class PdfReportBuilder:
                                 header_center_text=hdr_center,
                                 footer_center_text=ftr_center
                             )
-                            page.merge_page(overlay)
-                            _trim_whitespace_margins(page)
+                            added_page.merge_page(overlay)
 
-                            writer.add_page(page)
                             if first_page:
                                 first_page = False
                                 page_idx = len(writer.pages) - 1
@@ -464,6 +467,8 @@ class PdfReportBuilder:
                             current_page_number += 1
                             # 1. Apply dark blue recoloring to solution stream
                             _apply_solution_color(page)
+                            _trim_whitespace_margins(page)
+                            added_page = writer.add_page(page)
 
                             # 2. Merge Header/Footer overlay
                             w = float(page.mediabox.width)
@@ -477,10 +482,8 @@ class PdfReportBuilder:
                                 header_center_text=hdr_center,
                                 footer_center_text=ftr_center
                             )
-                            page.merge_page(overlay)
-                            _trim_whitespace_margins(page)
+                            added_page.merge_page(overlay)
 
-                            writer.add_page(page)
                             if first_page:
                                 first_page = False
                                 page_idx = len(writer.pages) - 1
@@ -559,6 +562,9 @@ class PdfReportBuilder:
             if is_sol:
                 _apply_solution_color(page)
 
+            _trim_whitespace_margins(page)
+            added_page = writer.add_page(page)
+
             w = float(page.mediabox.width)
             h = float(page.mediabox.height)
             header_txt = f"{item.question_label} #{item.id} ({kind_label})"
@@ -570,9 +576,7 @@ class PdfReportBuilder:
                 header_center_text=hdr_center,
                 footer_center_text=ftr_center
             )
-            page.merge_page(overlay)
-            _trim_whitespace_margins(page)
-            writer.add_page(page)
+            added_page.merge_page(overlay)
 
         os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
         final_path = output_path

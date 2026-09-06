@@ -43,3 +43,8 @@ trigger: always
 *   **Flutter Windows ListView Repaint Bug (LogConsole Pattern)**:
     *   **Πρόβλημα:** Στο Flet desktop στα Windows, όταν προστίθενται νέα controls σε `ft.ListView` (`controls.append`) από background threads, το widget diffing του Flutter engine δεν προκαλεί repaint στο παράθυρο μέχρι ο χρήστης να αλλάξει focus παραθύρου.
     *   **Λύση:** Χρησιμοποιούμε το δοκιμασμένο πρότυπο **`LogConsole`**, δηλαδή ένα ενιαίο `ft.Text` μέσα σε scrollable `ft.Column(scroll=ft.ScrollMode.ALWAYS, auto_scroll=True)`. Η ενημέρωση του `self.log_text.value += f"...\n"` ακολουθούμενη από `self.update()` εξαναγκάζει το Flutter text buffer να σχεδιάσει άμεσα (instant repaint) κάθε γραμμή σε πραγματικό χρόνο.
+
+*   **pypdf DeprecationWarning: Calling `PageObject.replace_contents()` for pages not assigned to a writer**:
+    *   **Πρόβλημα:** Στη βιβλιοθήκη `pypdf` (v5+), η κλήση `page.merge_page(overlay)` σε ένα αντικείμενο σελίδας που προέρχεται απευθείας από `PdfReader` και δεν έχει ακόμη προστεθεί σε κάποιο `PdfWriter` παράγει προειδοποίηση αποδοκιμασίας (`DeprecationWarning: Calling PageObject.replace_contents() for pages not assigned to a writer is deprecated and will be removed in pypdf 7.0.0. Attach the page to the writer first or use PdfWriter(clone_from=...) directly.`).
+    *   **Λύση:** Προσθέτουμε πρώτα τη σελίδα στον `PdfWriter` μέσω `added_page = writer.add_page(page)` και στη συνέχεια καλούμε τη συγχώνευση πάνω στην προσαρτημένη σελίδα (`added_page.merge_page(overlay)`). Έτσι η σελίδα συνδέεται άμεσα με το PDF document context του writer και η διαδικασία εκτελείται αξιόπιστα χωρίς warnings.
+
