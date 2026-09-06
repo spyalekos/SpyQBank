@@ -1,5 +1,5 @@
 {
   "custom_header_title": "Τίτλος",
   "custom_footer_text": "Υποσέλιδο",
-  "trim_whitespace": false
+  "trim_whitespace": true
 }
