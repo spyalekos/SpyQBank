@@ -23,7 +23,7 @@
    - Το project χρησιμοποιεί τη βιβλιοθήκη **Flet** (Material design UI).
    - **Flet Standards**:
      - Χρήση `ft.run(main)`.
-     - Χρήση `ft.Button(content=...)` (όχι deprecated `ElevatedButton`, ούτε `text` prop).
+     - Χρήση `ft.Button(content=...)`, `ft.TextButton(content=...)` (όχι deprecated `ElevatedButton`, ούτε `text` prop).
      - Χρήση `ft.Border.all()`, `ft.Border.symmetric()`.
      - Χρήση `page.snack_bar` με `page.snack_bar.open = True; page.update()`.
      - Χρήση `ft.Alignment(0, 0)`.
@@ -31,7 +31,7 @@
    - **Background Tasks & Live Logging (CRITICAL)**:
      - Κάθε δικτυακή κλήση ή βαριά επεξεργασία (λήψη θεμάτων, downloads PDF, συγχώνευση) εκτελείται μέσω **`page.run_thread(worker)`**.
      - Για logs χρησιμοποιούμε το δοκιμασμένο πρότυπο **`LogConsole`** (ενιαίο `ft.Text` μέσα σε scrollable `ft.Column`) για άμεσο redraw στα Windows.
-   - **CRITICAL (Καταγραφή Σφαλμάτων):** Κάθε νέο σφάλμα, ιδιαιτερότητα του Flet API ή Gotcha που επιλύεται κατά την ανάπτυξη, **ΠΡΕΠΕΙ ΥΠΟΧΡΕΩΤΙΚΑ** να καταγράφεται στο αρχείο [`.agents/flet.md`](file:///c:/Users/alekos/pyAlekos/SpyQBank/.agents/flet.md) στην «Ενότητα 6: 🐛 ΕΠΙΛΥΜΕΝΑ ΣΦΑΛΜΑΤΑ & GOTCHAS» για μελλοντική αναφορά.
+   - **CRITICAL (Καταγραφή Σφαλμάτων):** Κάθε νέο σφάλμα, ιδιαιτερότητα του Flet API ή Gotcha που επιλύεται κατά την ανάπτυξη, **ΠΡΕΠΕΙ ΥΠΟΧΡΕΩΤΙΚΑ** να καταγράφεται στο αρχείο [`.agents/flet.md`](file:///c:/Users/alekos/pyAlekos/SpyQBank/.agents/flet.md) στην «Ενότητα 3: 🐛 ΕΠΙΛΥΜΕΝΑ ΣΦΑΛΜΑΤΑ & GOTCHAS» για μελλοντική αναφορά.
 
 3. **Pyinstaller & Build (Desktop):** 
    - Δημιουργούμε εκτελέσιμα (.exe) χρησιμοποιώντας: `uv run pyinstaller SpyQBank.spec --clean`. **ΠΑΝΤΑ** προσθέτουμε την παράμετρο `--clean`.
@@ -74,10 +74,12 @@
 
 ## 📍 Τελευταία Γνωστή Κατάσταση (Last Known State)
 
-### 🚀 ΤΡΕΧΟΥΣΑ ΕΚΔΟΣΗ: v1.0.5 (SpyQBank)
-- **Επιδιόρθωση TextButton Content Parameter στο Διάλογο Ρυθμίσεων (v1.0.5)**:
-  - Αντικαταστάθηκε η χρήση του `text="Ακύρωση"` με `content=ft.Text("Ακύρωση")` στο `SettingsDialog` (`src/ui/settings_dialog.py`), επιλύοντας το runtime σφάλμα `TextButton.__init__() got an unexpected keyword argument 'text'`.
+### 🚀 ΤΡΕΧΟΥΣΑ ΕΚΔΟΣΗ: v1.0.6 (SpyQBank)
+- **Τεκμηρίωση & Καταγραφή Gotchas στο `flet.md` (v1.0.6)**:
+  - Καταγράφηκε αναλυτικά στην «Ενότητα 3: 🐛 ΕΠΙΛΥΜΕΝΑ ΣΦΑΛΜΑΤΑ & GOTCHAS» του `flet.md` η υποχρεωτική χρήση του `content=ft.Text(...)` αντί για `text="..."` σε όλους τους τύπους κουμπιών του Flet v0.80+ (`Button`, `TextButton`, `FilledButton`, `ElevatedButton`, `OutlinedButton`).
   - Ενημερώθηκαν όλες οι αναφορές εκδόσεων (`pyproject.toml`, `src/version.py`, `README.md`, `instructions.md`).
+- **Επιδιόρθωση TextButton Content Parameter στο Διάλογο Ρυθμίσεων (v1.0.5)**:
+  - Αντικαταστάθηκε η χρήση του `text="Ακύρωση"` με `content=ft.Text("Ακύρωση")` στο `SettingsDialog` (`src/ui/settings_dialog.py`).
 - **Διάλογος Ρυθμίσεων & Αποθήκευση στο `spyqbank.json` (v1.0.4)**:
   - Προσθήκη κουμπιού «⚙️ Ρυθμίσεις» και διαλόγου για επικεφαλίδες/υποσέλιδα.
 - **Αυτόματη Αποφυγή PermissionError / Locked File Fallback (v1.0.3)**:
