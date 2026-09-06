@@ -194,24 +194,13 @@ class PdfReportBuilder:
         if footer_center_text:
             c.setFont(font_regular, 8.5)
             c.setFillColor(colors.HexColor("#475569"))
-            c.drawCentredString(width / 2.0, 24, footer_center_text)
+            c.drawCentredString(width / 2.0, 20, footer_center_text)
 
-        # 4. Bottom IEP Attribution Notice (Required on all pages)
-        iep_line1 = "Όλα τα θέματα προέρχονται και αντλήθηκαν από την πλατφόρμα της Τράπεζας Θεμάτων Διαβαθμισμένης Δυσκολίας που αναπτύχθηκε"
-        iep_line2 = "(MIS5070818-Τράπεζα θεμάτων Διαβαθμισμένης Δυσκολίας για τη Δευτεροβάθμια Εκπαίδευση, Γενικό Λύκειο-ΕΠΑΛ) και είναι διαδικτυακά"
-        iep_line3 = "στο δικτυακό τόπο του Ινστιτούτου Εκπαιδευτικής Πολιτικής (Ι.Ε.Π.) στη διεύθυνση https://www.iep.edu.gr/trapeza-thematon-arxiki-selida/"
-
-        c.setFont(font_regular, 5.8)
-        c.setFillColor(colors.HexColor("#64748B"))
-        c.drawCentredString(width / 2.0, 16, iep_line1)
-        c.drawCentredString(width / 2.0, 9.5, iep_line2)
-        c.drawCentredString(width / 2.0, 3, iep_line3)
-
-        # 5. Bottom-Right Page Number (- χχ -)
+        # 4. Bottom-Right Page Number (- χχ -)
         if page_num is not None:
             c.setFont(font_regular, 9)
             c.setFillColor(colors.HexColor("#64748B"))
-            c.drawRightString(width - 35, 24, f"- {page_num} -")
+            c.drawRightString(width - 35, 20, f"- {page_num} -")
 
         c.save()
         packet.seek(0)
