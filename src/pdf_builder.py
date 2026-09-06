@@ -562,10 +562,18 @@ class PdfReportBuilder:
         should_trim = cfg.get("trim_whitespace", True)
         include_chapter_covers = cfg.get("include_chapter_covers", True)
 
-        # Deduplicate items
+        def _chapter_sort_key(ch_str: str):
+            """Natural alphanumeric sort key for chapter names (e.g. Chapter 2 before Chapter 10)."""
+            return [int(text) if text.isdigit() else text.lower() for text in re.split(r"(\d+)", ch_str)]
+
+        def _item_sort_key(it: QuestionItem):
+            primary_ch = it.materials[0].name if it.materials else "Γενικά / Χωρίς Κεφάλαιο"
+            return (_chapter_sort_key(primary_ch), it.question or 99, it.id)
+
+        # Deduplicate items and sort by Chapter (ascending) -> Question Number (1, 2, 3, 4) -> ID
         unique_items_map = {it.id: it for it in items}
         unique_items = list(unique_items_map.values())
-        unique_items.sort(key=lambda x: (x.question or 99, x.id))
+        unique_items.sort(key=_item_sort_key)
         total_items = len(unique_items)
 
         if progress_callback:
@@ -583,13 +591,16 @@ class PdfReportBuilder:
         for page in cover_reader.pages:
             writer.add_page(page)
 
-        # 2. Group items by primary chapter
+        # 2. Group items by primary chapter (maintaining sorted chapter order)
         chapters_map: Dict[str, List[QuestionItem]] = {}
         for it in unique_items:
             primary_ch = it.materials[0].name if it.materials else "Γενικά / Χωρίς Κεφάλαιο"
             if primary_ch not in chapters_map:
                 chapters_map[primary_ch] = []
             chapters_map[primary_ch].append(it)
+
+        # Sort chapters naturally
+        sorted_chapter_titles = sorted(chapters_map.keys(), key=_chapter_sort_key)
 
         current_page_number = 0
         processed = 0
@@ -598,7 +609,8 @@ class PdfReportBuilder:
             # ==========================================
             # SMART CONTINUOUS PACKING MODE (Trimming ON)
             # ==========================================
-            for ch_title, ch_items in chapters_map.items():
+            for ch_title in sorted_chapter_titles:
+                ch_items = chapters_map[ch_title]
                 if include_chapter_covers and len(chapters_map) > 1 and not chapter_name:
                     current_page_number += 1
                     ch_divider_stream = self._create_chapter_divider(ch_title, len(ch_items))
@@ -750,7 +762,8 @@ class PdfReportBuilder:
             # ==========================================
             # CLASSIC 1-PAGE-PER-SLICE MODE (Trimming OFF)
             # ==========================================
-            for ch_title, ch_items in chapters_map.items():
+            for ch_title in sorted_chapter_titles:
+                ch_items = chapters_map[ch_title]
                 if include_chapter_covers and len(chapters_map) > 1 and not chapter_name:
                     current_page_number += 1
                     ch_divider_stream = self._create_chapter_divider(ch_title, len(ch_items))

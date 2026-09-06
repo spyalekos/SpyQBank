@@ -2,6 +2,7 @@
 
 import os
 import sys
+import re
 import time
 import random
 import webbrowser
@@ -156,38 +157,38 @@ def main(page: ft.Page):
         modal=True,
         title=ft.Row(
             controls=[
-                ft.Icon(ft.Icons.HELP_OUTLINE, color=PRIMARY, size=28),
-                ft.Text(f"Βοήθεια & Οδηγίες Χρήσης - {APP_NAME}", weight=ft.FontWeight.BOLD, size=20),
+                ft.Icon(ft.Icons.HELP_OUTLINE, color=PRIMARY, size=32),
+                ft.Text(f"Βοήθεια & Οδηγίες Χρήσης - {APP_NAME}", weight=ft.FontWeight.BOLD, size=24),
             ],
-            spacing=10
+            spacing=12
         ),
         content=ft.Container(
             content=ft.Column(
                 controls=[
-                    ft.Text("Βασικές Λειτουργίες της Εφαρμογής:", weight=ft.FontWeight.BOLD, size=16, color=PRIMARY_DARK),
-                    ft.Text("• 🏫 Επιλογή Μαθήματος: Επιλέξτε Τύπο Σχολείου (ΓΕΛ / ΕΠΑΛ), Τάξη και Μάθημα από την πάνω μπάρα για να φορτωθούν τα αντίστοιχα θέματα.", size=14, color=TEXT_MAIN),
-                    ft.Text("• 📂 Φιλτράρισμα: Χρησιμοποιήστε το φίλτρο Κεφαλαίου, Τύπου Θέματος (1ο, 2ο, 3ο, 4ο) ή την Αναζήτηση με λέξεις-κλειδιά.", size=14, color=TEXT_MAIN),
-                    ft.Text("• 💡 Ζεύγη Θεμάτων-Απαντήσεων: Κάθε κάρτα θέματος περιέχει άμεσα κουμπιά προβολής και λήψης της Εκφώνησης και της Λύσης.", size=14, color=TEXT_MAIN),
-                    ft.Text("• 📑 Εξαγωγή σε PDF: Πατήστε «Εξαγωγή Όλων σε PDF» ή «PDF Κεφαλαίου» για να δημιουργήσετε ενιαίο PDF με όλα τα θέματα και τις απαντήσεις τους στη σειρά.", size=14, color=TEXT_MAIN),
-                    ft.Text("• 🎨 Χρωματισμός & Trimming: Οι εκφωνήσεις εμφανίζονται με μαύρα γράμματα και οι απαντήσεις με σκούρο μπλε. Στις Ρυθμίσεις (⚙️) μπορείτε να ελέγξετε την αφαίρεση κενού χώρου και τις διαχωριστικές σελίδες.", size=14, color=TEXT_MAIN),
-                    ft.Text("• ⚡ Offline Cache: Τα μεταδεδομένα και τα αρχεία αποθηκεύονται τοπικά για άμεση offline πρόσβαση.", size=14, color=TEXT_MAIN),
-                    ft.Divider(height=14, color=BORDER_COLOR),
-                    ft.Text(f"Έκδοση: v{__version__} | Τράπεζα Θεμάτων ΙΕΠ (https://trapeza.iep.edu.gr)", size=13, color=TEXT_MUTED, italic=True),
+                    ft.Text("Βασικές Λειτουργίες της Εφαρμογής:", weight=ft.FontWeight.BOLD, size=18, color=PRIMARY_DARK),
+                    ft.Text("• 🏫 Επιλογή Μαθήματος: Επιλέξτε Τύπο Σχολείου (ΓΕΛ / ΕΠΑΛ), Τάξη και Μάθημα από την πάνω μπάρα για να φορτωθούν τα αντίστοιχα θέματα.", size=16, color=TEXT_MAIN),
+                    ft.Text("• 📂 Φιλτράρισμα: Χρησιμοποιήστε το φίλτρο Κεφαλαίου, Τύπου Θέματος (1ο, 2ο, 3ο, 4ο) ή την Αναζήτηση με λέξεις-κλειδιά.", size=16, color=TEXT_MAIN),
+                    ft.Text("• 💡 Ζεύγη Θεμάτων-Απαντήσεων: Κάθε κάρτα θέματος περιέχει άμεσα κουμπιά προβολής και λήψης της Εκφώνησης και της Λύσης.", size=16, color=TEXT_MAIN),
+                    ft.Text("• 📑 Εξαγωγή σε PDF: Πατήστε «Εξαγωγή Όλων σε PDF» ή «PDF Κεφαλαίου» για να δημιουργήσετε ενιαίο PDF με όλα τα θέματα και τις απαντήσεις τους στη σειρά.", size=16, color=TEXT_MAIN),
+                    ft.Text("• 🎨 Χρωματισμός & Trimming: Οι εκφωνήσεις εμφανίζονται με μαύρα γράμματα και οι απαντήσεις με σκούρο μπλε. Στις Ρυθμίσεις (⚙️) μπορείτε να ελέγξετε την αφαίρεση κενού χώρου και τις διαχωριστικές σελίδες.", size=16, color=TEXT_MAIN),
+                    ft.Text("• ⚡ Offline Cache: Τα μεταδεδομένα και τα αρχεία αποθηκεύονται τοπικά για άμεση offline πρόσβαση.", size=16, color=TEXT_MAIN),
+                    ft.Divider(height=16, color=BORDER_COLOR),
+                    ft.Text(f"Έκδοση: v{__version__} | Τράπεζα Θεμάτων ΙΕΠ (https://trapeza.iep.edu.gr)", size=14, color=TEXT_MUTED, italic=True),
                 ],
                 tight=True,
-                spacing=10,
+                spacing=12,
                 scroll=ft.ScrollMode.AUTO,
             ),
-            width=680,
-            padding=16,
+            width=760,
+            padding=20,
         ),
         actions=[
             ft.Button(
-                content=ft.Text("Κλείσιμο", color=ft.Colors.WHITE, weight=ft.FontWeight.BOLD, size=14),
+                content=ft.Text("Κλείσιμο", color=ft.Colors.WHITE, weight=ft.FontWeight.BOLD, size=16),
                 style=ft.ButtonStyle(
                     bgcolor=PRIMARY,
                     shape=ft.RoundedRectangleBorder(radius=6),
-                    padding=ft.Padding(20, 12, 20, 12)
+                    padding=ft.Padding(24, 14, 24, 14)
                 ),
                 on_click=lambda e: _close_help()
             ),
@@ -542,6 +543,16 @@ def main(page: ft.Page):
                         all_items = []
                         show_snackbar(f"Σφάλμα: {e}", is_error=True)
 
+            def _chapter_sort_key(ch_str: str):
+                return [int(text) if text.isdigit() else text.lower() for text in re.split(r"(\d+)", ch_str)]
+
+            def _item_sort_key(it: QuestionItem):
+                primary_ch = it.materials[0].name if it.materials else "Γενικά / Χωρίς Κεφάλαιο"
+                return (_chapter_sort_key(primary_ch), it.question or 99, it.id)
+
+            # Sort items naturally: Chapter ascending -> Question (1, 2, 3, 4) -> ID
+            all_items.sort(key=_item_sort_key)
+
             # Populate chapters dropdown
             unique_chapters = set()
             for it in all_items:
@@ -549,7 +560,7 @@ def main(page: ft.Page):
                     if m.name:
                         unique_chapters.add(m.name)
 
-            sorted_chapters = sorted(list(unique_chapters))
+            sorted_chapters = sorted(list(unique_chapters), key=_chapter_sort_key)
             chapter_dropdown.options = [
                 ft.dropdown.Option(key="ALL", text="Όλα τα Κεφάλαια / Ενότητες")
             ] + [
@@ -614,9 +625,10 @@ def main(page: ft.Page):
         all_items = []
 
         if selected_class:
+            sorted_lessons = sorted(selected_class.lessons, key=lambda s: s.name.lower())
             subject_dropdown.options = [
                 ft.dropdown.Option(key=str(sub.id), text=sub.name)
-                for sub in selected_class.lessons
+                for sub in sorted_lessons
             ]
             subject_dropdown.value = None
             subject_dropdown.disabled = False
