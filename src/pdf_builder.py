@@ -86,20 +86,40 @@ _register_greek_fonts()
 
 def _recolor_stream_to_dark_blue(raw_bytes: bytes) -> bytes:
     """
-    Recolor black / dark grayscale text, fills and strokes to dark navy blue (#0D338C).
-    Assignment retains crisp black text, Solution is converted to dark navy blue.
+    Recolor all dark grayscale, near-black, and dark RGB text, fills and strokes to dark navy blue (#0D338C).
+    Assignment retains crisp black text, Solution is fully converted to dark navy blue.
     """
     try:
         text = raw_bytes.decode("latin1", errors="ignore")
-        # 1. Replace standalone '0 g' (grayscale fill black) with navy RGB fill
-        text = re.sub(r"(?<![0-9.])0(\.0+)?\s+g(?![a-zA-Z0-9])", f"{NAVY_R} {NAVY_G} {NAVY_B} rg", text)
-        # 2. Replace standalone '0 G' (grayscale stroke black) with navy RGB stroke
-        text = re.sub(r"(?<![0-9.])0(\.0+)?\s+G(?![a-zA-Z0-9])", f"{NAVY_R} {NAVY_G} {NAVY_B} RG", text)
-        # 3. Replace '0 0 0 rg' (RGB fill black)
-        text = re.sub(r"(?<![0-9.])0(\.0+)?\s+0(\.0+)?\s+0(\.0+)?\s+rg(?![a-zA-Z0-9])", f"{NAVY_R} {NAVY_G} {NAVY_B} rg", text)
-        # 4. Replace '0 0 0 RG' (RGB stroke black)
-        text = re.sub(r"(?<![0-9.])0(\.0+)?\s+0(\.0+)?\s+0(\.0+)?\s+RG(?![a-zA-Z0-9])", f"{NAVY_R} {NAVY_G} {NAVY_B} RG", text)
-        # 5. Prepend global default dark navy color state
+
+        # Helper for grayscale 'g' / 'G'
+        def replace_grayscale(match):
+            val = float(match.group(1))
+            # Convert dark colors (e.g. 0.0, 0.133, etc. <= 0.40) to navy blue
+            # White (1.0 g) or light highlights remain untouched
+            if val <= 0.40:
+                op = match.group(2)
+                return f"{NAVY_R} {NAVY_G} {NAVY_B} rg" if op == "g" else f"{NAVY_R} {NAVY_G} {NAVY_B} RG"
+            return match.group(0)
+
+        # Helper for RGB 'rg' / 'RG'
+        def replace_rgb(match):
+            r = float(match.group(1))
+            g = float(match.group(2))
+            b = float(match.group(3))
+            op = match.group(4)
+            # Convert dark colors (r,g,b all <= 0.45) to navy blue
+            if r <= 0.45 and g <= 0.45 and b <= 0.45:
+                return f"{NAVY_R} {NAVY_G} {NAVY_B} rg" if op == "rg" else f"{NAVY_R} {NAVY_G} {NAVY_B} RG"
+            return match.group(0)
+
+        # 1. Match all grayscale operations (e.g. '0 g', '0.133 g', '0 G')
+        text = re.sub(r"(?<![0-9.])([0-9.]+)\s+([gG])(?![a-zA-Z0-9])", replace_grayscale, text)
+
+        # 2. Match all RGB operations (e.g. '0 0 0 rg', '0.137 0.122 0.125 rg', '.058824 .090196 .164706 rg')
+        text = re.sub(r"(?<![0-9.])([0-9.]+)\s+([0-9.]+)\s+([0-9.]+)\s+([rR][gG])(?![a-zA-Z0-9])", replace_rgb, text)
+
+        # 3. Prepend global default dark navy color state
         prefix = f"{NAVY_R} {NAVY_G} {NAVY_B} rg\n{NAVY_R} {NAVY_G} {NAVY_B} RG\n"
         return (prefix + text).encode("latin1")
     except Exception as e:
