@@ -13,6 +13,7 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
+from reportlab.pdfgen import canvas
 
 from src.models import QuestionItem
 from src.iep_api import IepApiClient
@@ -23,6 +24,7 @@ logger = logging.getLogger("SpyQBank.PdfBuilder")
 # Register Unicode / Greek fonts for ReportLab
 FONT_REGULAR = "GreekSans"
 FONT_BOLD = "GreekSans-Bold"
+
 
 def _register_greek_fonts():
     """Find and register system fonts supporting Greek characters."""
@@ -67,6 +69,7 @@ def _register_greek_fonts():
         except Exception as e:
             logger.warning(f"Could not register {FONT_BOLD}: {e}")
 
+
 # Run font registration
 _register_greek_fonts()
 
@@ -77,6 +80,36 @@ class PdfReportBuilder:
     def __init__(self, api_client: IepApiClient, storage: StorageManager):
         self.api = api_client
         self.storage = storage
+
+    def _create_header_footer_overlay(
+        self,
+        width: float,
+        height: float,
+        header_text: Optional[str],
+        page_num: Optional[int]
+    ):
+        """Generate a transparent overlay page with top-right question header and bottom-right page number."""
+        packet = io.BytesIO()
+        c = canvas.Canvas(packet, pagesize=(width, height))
+
+        font_bold = FONT_BOLD if FONT_BOLD in pdfmetrics.getRegisteredFontNames() else "Helvetica-Bold"
+        font_regular = FONT_REGULAR if FONT_REGULAR in pdfmetrics.getRegisteredFontNames() else "Helvetica"
+
+        # Top-right Header (# θέματος)
+        if header_text:
+            c.setFont(font_bold, 9)
+            c.setFillColor(colors.HexColor("#1E3A8A"))
+            c.drawRightString(width - 35, height - 25, header_text)
+
+        # Bottom-right Page Number (- χχ -)
+        if page_num is not None:
+            c.setFont(font_regular, 9)
+            c.setFillColor(colors.HexColor("#64748B"))
+            c.drawRightString(width - 35, 20, f"- {page_num} -")
+
+        c.save()
+        packet.seek(0)
+        return PdfReader(packet).pages[0]
 
     def _create_cover_page(self, title: str, subtitle: str, metadata_lines: List[str]) -> io.BytesIO:
         """Create a cover page using ReportLab in memory with Greek font support."""
@@ -193,7 +226,8 @@ class PdfReportBuilder:
         progress_callback: Optional[Callable[[str, float], None]] = None
     ) -> str:
         """
-        Merge all items (Question + Solution paired sequentially) into a single PDF.
+        Merge all items (Question + Solution paired sequentially) into a single PDF,
+        with top-right question header (# θέματος) and bottom-right pagination (- χχ -).
         """
         writer = PdfWriter()
 
@@ -206,7 +240,7 @@ class PdfReportBuilder:
         if progress_callback:
             progress_callback("Προετοιμασία εξωφύλλου...", 0.05)
 
-        # 1. Add Cover Page
+        # 1. Add Cover Page (no page number, no header)
         cover_title = f"Τράπεζα Θεμάτων: {subject_name}"
         cover_sub = chapter_name if chapter_name else "Όλα τα Κεφάλαια"
         meta = [
@@ -226,12 +260,23 @@ class PdfReportBuilder:
                 chapters_map[primary_ch] = []
             chapters_map[primary_ch].append(it)
 
+        current_page_number = 0
         processed = 0
+
         for ch_title, ch_items in chapters_map.items():
             if len(chapters_map) > 1 and not chapter_name:
+                current_page_number += 1
                 ch_divider_stream = self._create_chapter_divider(ch_title, len(ch_items))
                 div_reader = PdfReader(ch_divider_stream)
-                writer.add_page(div_reader.pages[0])
+                div_page = div_reader.pages[0]
+
+                # Overlay page number and header on chapter divider
+                w = float(div_page.mediabox.width)
+                h = float(div_page.mediabox.height)
+                overlay = self._create_header_footer_overlay(w, h, f"📁 {ch_title}", current_page_number)
+                div_page.merge_page(overlay)
+
+                writer.add_page(div_page)
                 ch_outline = writer.add_outline_item(
                     title=f"📁 {ch_title}",
                     page_number=len(writer.pages) - 1
@@ -260,37 +305,46 @@ class PdfReportBuilder:
                 except Exception as e:
                     logger.warning(f"Could not download solution PDF for #{it.id}: {e}")
 
-                # Add Assignment PDF pages
+                # Add Assignment PDF pages with Header & Footer overlay
                 q_outline = None
                 if os.path.exists(assign_path) and os.path.getsize(assign_path) > 0:
                     try:
                         assign_reader = PdfReader(assign_path)
                         first_page = True
                         for page in assign_reader.pages:
+                            current_page_number += 1
+                            w = float(page.mediabox.width)
+                            h = float(page.mediabox.height)
+                            header_txt = f"{it.question_label} #{it.id} (Εκφώνηση)"
+                            overlay = self._create_header_footer_overlay(w, h, header_txt, current_page_number)
+                            page.merge_page(overlay)
+
                             writer.add_page(page)
                             if first_page:
                                 first_page = False
                                 page_idx = len(writer.pages) - 1
-                                if ch_outline:
-                                    q_outline = writer.add_outline_item(
-                                        title=f"📄 {q_label} (Εκφώνηση)",
-                                        page_number=page_idx,
-                                        parent=ch_outline
-                                    )
-                                else:
-                                    q_outline = writer.add_outline_item(
-                                        title=f"📄 {q_label} (Εκφώνηση)",
-                                        page_number=page_idx
-                                    )
+                                parent_node = ch_outline
+                                q_outline = writer.add_outline_item(
+                                    title=f"📄 {q_label} (Εκφώνηση)",
+                                    page_number=page_idx,
+                                    parent=parent_node
+                                )
                     except Exception as e:
                         logger.error(f"Failed to append assignment PDF #{it.id}: {e}")
 
-                # Add Solution PDF pages directly below
+                # Add Solution PDF pages directly below with Header & Footer overlay
                 if os.path.exists(sol_path) and os.path.getsize(sol_path) > 0:
                     try:
                         sol_reader = PdfReader(sol_path)
                         first_page = True
                         for page in sol_reader.pages:
+                            current_page_number += 1
+                            w = float(page.mediabox.width)
+                            h = float(page.mediabox.height)
+                            header_txt = f"{it.question_label} #{it.id} (Απάντηση)"
+                            overlay = self._create_header_footer_overlay(w, h, header_txt, current_page_number)
+                            page.merge_page(overlay)
+
                             writer.add_page(page)
                             if first_page:
                                 first_page = False
