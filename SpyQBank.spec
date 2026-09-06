@@ -1,15 +1,28 @@
-# -*- mode: python ; coding: utf-8 -*-
+import os
 
 block_cipher = None
 
 a = Analysis(
-    ['src/main.py'],
-    pathex=[],
+    ['run.py'],
+    pathex=['.'],
     binaries=[],
     datas=[
         ('assets', 'assets'),
-    ],
+    ] if os.path.exists('assets') else [],
     hiddenimports=[
+        'src',
+        'src.version',
+        'src.models',
+        'src.iep_api',
+        'src.storage',
+        'src.pdf_builder',
+        'src.config',
+        'src.ui',
+        'src.ui.theme',
+        'src.ui.log_console',
+        'src.ui.question_card',
+        'src.ui.settings_dialog',
+        'src.main',
         'flet',
         'flet_desktop',
         'requests',

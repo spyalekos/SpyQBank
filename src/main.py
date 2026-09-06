@@ -7,8 +7,14 @@ import random
 import webbrowser
 import flet as ft
 
-# Ensure src package is in path
-sys.path.insert(0, os.path.abspath("."))
+# Ensure root directory and _MEIPASS are in sys.path
+if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
+    base_dir = sys._MEIPASS
+else:
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+if base_dir not in sys.path:
+    sys.path.insert(0, base_dir)
 
 from src.version import APP_NAME, APP_TITLE, __version__
 from src.models import SchoolType, ClassLevel, Subject, QuestionItem
