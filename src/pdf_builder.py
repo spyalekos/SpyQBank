@@ -194,13 +194,24 @@ class PdfReportBuilder:
         if footer_center_text:
             c.setFont(font_regular, 8.5)
             c.setFillColor(colors.HexColor("#475569"))
-            c.drawCentredString(width / 2.0, 20, footer_center_text)
+            c.drawCentredString(width / 2.0, 24, footer_center_text)
 
-        # 4. Bottom-Right Page Number (- χχ -)
+        # 4. Bottom IEP Attribution Notice (Required on all pages)
+        iep_line1 = "Όλα τα θέματα προέρχονται και αντλήθηκαν από την πλατφόρμα της Τράπεζας Θεμάτων Διαβαθμισμένης Δυσκολίας που αναπτύχθηκε"
+        iep_line2 = "(MIS5070818-Τράπεζα θεμάτων Διαβαθμισμένης Δυσκολίας για τη Δευτεροβάθμια Εκπαίδευση, Γενικό Λύκειο-ΕΠΑΛ) και είναι διαδικτυακά"
+        iep_line3 = "στο δικτυακό τόπο του Ινστιτούτου Εκπαιδευτικής Πολιτικής (Ι.Ε.Π.) στη διεύθυνση https://www.iep.edu.gr/trapeza-thematon-arxiki-selida/"
+
+        c.setFont(font_regular, 5.8)
+        c.setFillColor(colors.HexColor("#64748B"))
+        c.drawCentredString(width / 2.0, 16, iep_line1)
+        c.drawCentredString(width / 2.0, 9.5, iep_line2)
+        c.drawCentredString(width / 2.0, 3, iep_line3)
+
+        # 5. Bottom-Right Page Number (- χχ -)
         if page_num is not None:
             c.setFont(font_regular, 9)
             c.setFillColor(colors.HexColor("#64748B"))
-            c.drawRightString(width - 35, 20, f"- {page_num} -")
+            c.drawRightString(width - 35, 24, f"- {page_num} -")
 
         c.save()
         packet.seek(0)
@@ -215,7 +226,7 @@ class PdfReportBuilder:
             leftMargin=40,
             rightMargin=40,
             topMargin=50,
-            bottomMargin=50
+            bottomMargin=30
         )
 
         styles = getSampleStyleSheet()
@@ -249,20 +260,38 @@ class PdfReportBuilder:
             alignment=1,
             spaceAfter=8
         )
+        iep_cover_style = ParagraphStyle(
+            'CoverIEPNotice',
+            parent=styles['Normal'],
+            fontName=FONT_REGULAR if FONT_REGULAR in pdfmetrics.getRegisteredFontNames() else 'Helvetica',
+            fontSize=7.5,
+            leading=11,
+            textColor=colors.HexColor('#64748B'),
+            alignment=1,  # Center
+            spaceBefore=25
+        )
 
         story = [
-            Spacer(1, 100),
+            Spacer(1, 80),
             Paragraph(html.escape(title), title_style),
             Paragraph(html.escape(subtitle), subtitle_style),
-            Spacer(1, 40),
+            Spacer(1, 35),
         ]
 
         for line in metadata_lines:
             story.append(Paragraph(html.escape(line), meta_style))
 
-        story.append(Spacer(1, 80))
+        story.append(Spacer(1, 60))
         story.append(Paragraph("Τράπεζα Θεμάτων Διαβαθμισμένης Δυσκολίας - Ι.Ε.Π.", meta_style))
         story.append(Paragraph("Παραγωγή μέσω SpyQBank", meta_style))
+
+        iep_full_notice = (
+            "Όλα τα θέματα προέρχονται και αντλήθηκαν από την πλατφόρμα της Τράπεζας Θεμάτων Διαβαθμισμένης Δυσκολίας "
+            "που αναπτύχθηκε (MIS5070818-Τράπεζα θεμάτων Διαβαθμισμένης Δυσκολίας για τη Δευτεροβάθμια Εκπαίδευση, Γενικό Λύκειο-ΕΠΑΛ) "
+            "και είναι διαδικτυακά στο δικτυακό τόπο του Ινστιτούτου Εκπαιδευτικής Πολιτικής (Ι.Ε.Π.) στη διεύθυνση "
+            "https://www.iep.edu.gr/trapeza-thematon-arxiki-selida/"
+        )
+        story.append(Paragraph(iep_full_notice, iep_cover_style))
 
         doc.build(story)
         packet.seek(0)
