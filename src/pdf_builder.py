@@ -167,8 +167,8 @@ class PdfReportBuilder:
     ):
         """
         Generate a transparent overlay page with:
-        - Top-Center: Custom Title from Settings
-        - Top-Right: Question Header (# θέματος)
+        - Top-Left: Custom Title from Settings
+        - Top-Right: Question / Chapter Header (# θέματος / Κεφάλαιο)
         - Bottom-Center: Custom Footer Text from Settings
         - Bottom-Right: Page Number (- χχ -)
         """
@@ -178,13 +178,13 @@ class PdfReportBuilder:
         font_bold = FONT_BOLD if FONT_BOLD in pdfmetrics.getRegisteredFontNames() else "Helvetica-Bold"
         font_regular = FONT_REGULAR if FONT_REGULAR in pdfmetrics.getRegisteredFontNames() else "Helvetica"
 
-        # 1. Top-Center Header (Custom Title from Settings)
+        # 1. Top-Left Header (Custom Title from Settings - Left-aligned)
         if header_center_text:
             c.setFont(font_bold, 9)
             c.setFillColor(colors.HexColor("#334155"))
-            c.drawCentredString(width / 2.0, height - 25, header_center_text)
+            c.drawString(35, height - 25, header_center_text)
 
-        # 2. Top-Right Header (# θέματος)
+        # 2. Top-Right Header (# θέματος / Κεφάλαιο)
         if header_right_text:
             c.setFont(font_bold, 9)
             c.setFillColor(colors.HexColor("#1E3A8A"))
