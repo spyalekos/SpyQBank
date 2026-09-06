@@ -241,31 +241,54 @@ def main(page: ft.Page):
         if is_busy:
             return
 
+        # ⚡ Immediately lock & gray out UI on current UI turn
+        set_ui_busy(True)
+        progress_bar.visible = True
+        status_text.value = f"Επεξεργασία & άνοιγμα PDF #{item.id}..."
+        page.update()
+
         def worker():
             kind_label = "Εκφώνηση" if file_type == 1 else "Λύση"
-            log_console.log(f"Άνοιγμα PDF #{item.id} ({kind_label})...")
-            url = item.get_assignment_pdf_url() if file_type == 1 else item.get_solution_pdf_url()
-            dest = storage.get_pdf_cache_path(item.id, file_type)
+            kind_slug = "assignment" if file_type == 1 else "solution"
+            log_console.log(f"Προετοιμασία PDF #{item.id} ({kind_label}) με τίτλους & χρωματισμό...")
+            processed_filename = f"IEP_{item.subject_id}_{item.id}_{kind_slug}_view.pdf"
+            dest = os.path.join(storage.pdf_dir, processed_filename)
             try:
-                final_dest = api_client.download_file(url, dest)
-                if os.path.exists(final_dest):
-                    # Open locally
+                final_pdf = pdf_builder.build_single_item_report(
+                    item=item,
+                    file_type=file_type,
+                    output_path=dest
+                )
+                if os.path.exists(final_pdf):
                     if sys.platform == "win32":
-                        os.startfile(final_dest)
+                        os.startfile(final_pdf)
                     else:
-                        webbrowser.open(f"file://{os.path.abspath(final_dest)}")
-                    log_console.log(f"Άνοιξε το αρχείο: {os.path.basename(final_dest)}", "SUCCESS")
+                        webbrowser.open(f"file://{os.path.abspath(final_pdf)}")
+                    log_console.log(f"Άνοιξε το αρχείο: {os.path.basename(final_pdf)}", "SUCCESS")
                 else:
+                    url = item.get_assignment_pdf_url() if file_type == 1 else item.get_solution_pdf_url()
                     webbrowser.open(url)
             except Exception as e:
-                log_console.log(f"Σφάλμα λήψης PDF #{item.id}: {e}", "ERROR")
+                log_console.log(f"Σφάλμα επεξεργασίας PDF #{item.id}: {e}", "ERROR")
+                url = item.get_assignment_pdf_url() if file_type == 1 else item.get_solution_pdf_url()
                 webbrowser.open(url)
+            finally:
+                progress_bar.visible = False
+                status_text.value = "Έτοιμο."
+                set_ui_busy(False)
+                page.update()
 
         page.run_thread(worker)
 
     def handle_download_pdf(item: QuestionItem, file_type: int):
         if is_busy:
             return
+
+        # ⚡ Immediately lock & gray out UI on current UI turn
+        set_ui_busy(True)
+        progress_bar.visible = True
+        status_text.value = f"Λήψη & μορφοποίηση PDF #{item.id}..."
+        page.update()
 
         def worker():
             kind_label = "εκφωνηση" if file_type == 1 else "απαντηση"
@@ -274,16 +297,24 @@ def main(page: ft.Page):
             filename = f"IEP_{item.subject_id}_{item.id}_{kind_label}.pdf"
             dest = os.path.join(downloads_dir, filename)
 
-            url = item.get_assignment_pdf_url() if file_type == 1 else item.get_solution_pdf_url()
-            log_console.log(f"Λήψη PDF στο φάκελο downloads: {filename}...")
+            log_console.log(f"Επεξεργασία & λήψη PDF στο φάκελο downloads: {filename}...")
             try:
-                saved_path = api_client.download_file(url, dest, force=True)
+                saved_path = pdf_builder.build_single_item_report(
+                    item=item,
+                    file_type=file_type,
+                    output_path=dest
+                )
                 saved_name = os.path.basename(saved_path)
                 log_console.log(f"Αποθηκεύτηκε στο: {saved_path}", "SUCCESS")
                 show_snackbar(f"Αποθηκεύτηκε: {saved_name}")
             except Exception as e:
                 log_console.log(f"Σφάλμα αποθήκευσης: {e}", "ERROR")
                 show_snackbar(f"Σφάλμα λήψης: {e}", is_error=True)
+            finally:
+                progress_bar.visible = False
+                status_text.value = "Έτοιμο."
+                set_ui_busy(False)
+                page.update()
 
         page.run_thread(worker)
 

@@ -522,3 +522,71 @@ class PdfReportBuilder:
 
         return final_path
 
+    def build_single_item_report(
+        self,
+        item: QuestionItem,
+        file_type: int,  # 1 = Assignment, 2 = Solution
+        output_path: str,
+        custom_header_title: Optional[str] = None,
+        custom_footer_text: Optional[str] = None
+    ) -> str:
+        """
+        Download and process a single Question or Solution PDF, applying:
+        - Header overlay (# θέματος, custom header)
+        - Footer overlay (- χχ -, custom footer)
+        - Dark Navy Blue color if it is a Solution (file_type == 2)
+        - Safe margin whitespace trimming
+        """
+        writer = PdfWriter()
+
+        cfg = load_config()
+        hdr_center = custom_header_title if custom_header_title is not None else cfg.get("custom_header_title", "")
+        ftr_center = custom_footer_text if custom_footer_text is not None else cfg.get("custom_footer_text", "")
+
+        is_sol = (file_type == 2)
+        kind_label = "Απάντηση" if is_sol else "Εκφώνηση"
+        src_path = self.storage.get_pdf_cache_path(item.id, file_type)
+        url = item.get_solution_pdf_url() if is_sol else item.get_assignment_pdf_url()
+
+        self.api.download_file(url, src_path)
+
+        if not os.path.exists(src_path) or os.path.getsize(src_path) == 0:
+            raise FileNotFoundError(f"Could not download {kind_label} PDF for #{item.id}")
+
+        reader = PdfReader(src_path)
+        for idx, page in enumerate(reader.pages):
+            page_num = idx + 1
+            if is_sol:
+                _apply_solution_color(page)
+
+            w = float(page.mediabox.width)
+            h = float(page.mediabox.height)
+            header_txt = f"{item.question_label} #{item.id} ({kind_label})"
+            overlay = self._create_header_footer_overlay(
+                width=w,
+                height=h,
+                header_right_text=header_txt,
+                page_num=page_num,
+                header_center_text=hdr_center,
+                footer_center_text=ftr_center
+            )
+            page.merge_page(overlay)
+            _trim_whitespace_margins(page)
+            writer.add_page(page)
+
+        os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
+        final_path = output_path
+        try:
+            with open(final_path, "wb") as f:
+                writer.write(f)
+        except PermissionError:
+            base, ext = os.path.splitext(output_path)
+            rand_suffix = random.randint(100, 999)
+            final_path = f"{base}_{rand_suffix}{ext}"
+            logger.warning(f"File locked ({output_path}), saving with random suffix to: {final_path}")
+            with open(final_path, "wb") as f:
+                writer.write(f)
+
+        return final_path
+
+
