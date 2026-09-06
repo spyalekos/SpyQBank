@@ -156,38 +156,38 @@ def main(page: ft.Page):
         modal=True,
         title=ft.Row(
             controls=[
-                ft.Icon(ft.Icons.HELP_OUTLINE, color=PRIMARY, size=24),
-                ft.Text(f"Βοήθεια & Οδηγίες Χρήσης - {APP_NAME}", weight=ft.FontWeight.BOLD, size=17),
+                ft.Icon(ft.Icons.HELP_OUTLINE, color=PRIMARY, size=28),
+                ft.Text(f"Βοήθεια & Οδηγίες Χρήσης - {APP_NAME}", weight=ft.FontWeight.BOLD, size=20),
             ],
-            spacing=8
+            spacing=10
         ),
         content=ft.Container(
             content=ft.Column(
                 controls=[
-                    ft.Text("Βασικές Λειτουργίες της Εφαρμογής:", weight=ft.FontWeight.BOLD, size=13, color=PRIMARY_DARK),
-                    ft.Text("• 🏫 Επιλογή Μαθήματος: Επιλέξτε Τύπο Σχολείου (ΓΕΛ / ΕΠΑΛ), Τάξη και Μάθημα από την πάνω μπάρα για να φορτωθούν τα θέματα.", size=12, color=TEXT_MAIN),
-                    ft.Text("• 📂 Φιλτράρισμα: Χρησιμοποιήστε το φίλτρο Κεφαλαίου, Τύπου Θέματος (1ο, 2ο, 3ο, 4ο) ή την Αναζήτηση με λέξεις-κλειδιά.", size=12, color=TEXT_MAIN),
-                    ft.Text("• 💡 Ζεύγη Θεμάτων-Απαντήσεων: Κάθε κάρτα θέματος περιέχει άμεσα κουμπιά προβολής και λήψης της Εκφώνησης και της Λύσης.", size=12, color=TEXT_MAIN),
-                    ft.Text("• 📑 Εξαγωγή σε PDF: Πατήστε «Εξαγωγή Όλων σε PDF» ή «PDF Κεφαλαίου» για να δημιουργήσετε ενιαίο PDF με όλα τα θέματα και τις απαντήσεις τους στη σειρά.", size=12, color=TEXT_MAIN),
-                    ft.Text("• 🎨 Χρωματισμός & Trimming: Οι εκφωνήσεις εμφανίζονται με μαύρα γράμματα και οι απαντήσεις με σκούρο μπλε. Στις Ρυθμίσεις (⚙️) μπορείτε να ελέγξετε την αφαίρεση κενού χώρου και τις διαχωριστικές σελίδες.", size=12, color=TEXT_MAIN),
-                    ft.Text("• ⚡ Offline Cache: Τα μεταδεδομένα και τα αρχεία αποθηκεύονται τοπικά για άμεση offline πρόσβαση.", size=12, color=TEXT_MAIN),
-                    ft.Divider(height=10, color=BORDER_COLOR),
-                    ft.Text(f"Έκδοση: v{__version__} | Τράπεζα Θεμάτων ΙΕΠ (https://trapeza.iep.edu.gr)", size=11, color=TEXT_MUTED, italic=True),
+                    ft.Text("Βασικές Λειτουργίες της Εφαρμογής:", weight=ft.FontWeight.BOLD, size=16, color=PRIMARY_DARK),
+                    ft.Text("• 🏫 Επιλογή Μαθήματος: Επιλέξτε Τύπο Σχολείου (ΓΕΛ / ΕΠΑΛ), Τάξη και Μάθημα από την πάνω μπάρα για να φορτωθούν τα αντίστοιχα θέματα.", size=14, color=TEXT_MAIN),
+                    ft.Text("• 📂 Φιλτράρισμα: Χρησιμοποιήστε το φίλτρο Κεφαλαίου, Τύπου Θέματος (1ο, 2ο, 3ο, 4ο) ή την Αναζήτηση με λέξεις-κλειδιά.", size=14, color=TEXT_MAIN),
+                    ft.Text("• 💡 Ζεύγη Θεμάτων-Απαντήσεων: Κάθε κάρτα θέματος περιέχει άμεσα κουμπιά προβολής και λήψης της Εκφώνησης και της Λύσης.", size=14, color=TEXT_MAIN),
+                    ft.Text("• 📑 Εξαγωγή σε PDF: Πατήστε «Εξαγωγή Όλων σε PDF» ή «PDF Κεφαλαίου» για να δημιουργήσετε ενιαίο PDF με όλα τα θέματα και τις απαντήσεις τους στη σειρά.", size=14, color=TEXT_MAIN),
+                    ft.Text("• 🎨 Χρωματισμός & Trimming: Οι εκφωνήσεις εμφανίζονται με μαύρα γράμματα και οι απαντήσεις με σκούρο μπλε. Στις Ρυθμίσεις (⚙️) μπορείτε να ελέγξετε την αφαίρεση κενού χώρου και τις διαχωριστικές σελίδες.", size=14, color=TEXT_MAIN),
+                    ft.Text("• ⚡ Offline Cache: Τα μεταδεδομένα και τα αρχεία αποθηκεύονται τοπικά για άμεση offline πρόσβαση.", size=14, color=TEXT_MAIN),
+                    ft.Divider(height=14, color=BORDER_COLOR),
+                    ft.Text(f"Έκδοση: v{__version__} | Τράπεζα Θεμάτων ΙΕΠ (https://trapeza.iep.edu.gr)", size=13, color=TEXT_MUTED, italic=True),
                 ],
                 tight=True,
-                spacing=8,
+                spacing=10,
                 scroll=ft.ScrollMode.AUTO,
             ),
-            width=540,
-            padding=10,
+            width=680,
+            padding=16,
         ),
         actions=[
             ft.Button(
-                content=ft.Text("Κλείσιμο", color=ft.Colors.WHITE, weight=ft.FontWeight.BOLD),
+                content=ft.Text("Κλείσιμο", color=ft.Colors.WHITE, weight=ft.FontWeight.BOLD, size=14),
                 style=ft.ButtonStyle(
                     bgcolor=PRIMARY,
                     shape=ft.RoundedRectangleBorder(radius=6),
-                    padding=ft.Padding(16, 10, 16, 10)
+                    padding=ft.Padding(20, 12, 20, 12)
                 ),
                 on_click=lambda e: _close_help()
             ),
