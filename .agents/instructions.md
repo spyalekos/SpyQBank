@@ -111,6 +111,9 @@
     - Η αρίθμηση σελίδων (`- χχ -` κάτω δεξιά).
     - Η χρωματική διάκριση (μαύρα γράμματα στις εκφωνήσεις, σκούρο μπλε `#0D338C` στις λύσεις).
     - Το trimming περιττού λευκού χώρου στα περιθώρια.
+- **Βελτιστοποίηση Υπολογισμού Ορίων & Trimming Μεμονωμένων PDF (v1.2.4)**:
+  - Προσθήκη πλήρους υποστήριξης PDF operators (`TL`, `T*`, `'`, `m`, `l`) και φιλτραρίσματος μεγάλων background rects στη συνάρτηση `_get_page_content_bounds`.
+  - Εφαρμογή δυναμικού cropbox trimming (`min_y`) και στις προβολές/λήψεις μεμονωμένων θεμάτων (`build_single_item_report`) όταν το `trim_whitespace` είναι ενεργό.
 - **Επιδιόρθωση `ModuleNotFoundError: No module named 'src'` στο PyInstaller (v1.2.3)**:
   - Προσθήκη root entry point `run.py` και ρητής προσθήκης του `sys._MEIPASS` / root directory στο `sys.path`.
   - Ενημέρωση του `SpyQBank.spec` με `pathex=['.']` και πλήρη λίστα hiddenimports (`src`, `src.main`, κ.λπ.) ώστε το πακέτο `src` να αναγνωρίζεται και να εκτελείται απρόσκοπτα μέσα στο αυτόνομο εκτελέσιμο `.exe`.

@@ -184,6 +184,7 @@ def _get_page_content_bounds(page):
         ctm_stack = [[1.0, 0.0, 0.0, 1.0, 0.0, 0.0]]
         text_matrix = [1.0, 0.0, 0.0, 1.0, 0.0, 0.0]
         line_matrix = [1.0, 0.0, 0.0, 1.0, 0.0, 0.0]
+        leading = 14.0
 
         y_coords = []
 
@@ -206,6 +207,23 @@ def _get_page_content_bounds(page):
             elif tok == "BT":
                 text_matrix = [1.0, 0.0, 0.0, 1.0, 0.0, 0.0]
                 line_matrix = [1.0, 0.0, 0.0, 1.0, 0.0, 0.0]
+                stack.clear()
+            elif tok == "TL":
+                if stack:
+                    try:
+                        leading = float(stack[-1])
+                    except Exception:
+                        pass
+                stack.clear()
+            elif tok in ("T*", "'"):
+                lm = line_matrix
+                new_e = lm[4]
+                new_f = lm[5] - leading
+                line_matrix = [lm[0], lm[1], lm[2], lm[3], new_e, new_f]
+                text_matrix = list(line_matrix)
+                curr_ctm = ctm_stack[-1]
+                eff_matrix = mat_mult(curr_ctm, text_matrix)
+                y_coords.append(eff_matrix[5])
                 stack.clear()
             elif tok == "Tm":
                 if len(stack) >= 6:
@@ -237,11 +255,22 @@ def _get_page_content_bounds(page):
                 if len(stack) >= 4:
                     try:
                         rx, ry, rw, rh = float(stack[-4]), float(stack[-3]), float(stack[-2]), float(stack[-1])
-                        curr_ctm = ctm_stack[-1]
-                        _, y1 = transform_pt(curr_ctm, rx, ry)
-                        _, y2 = transform_pt(curr_ctm, rx + rw, ry + rh)
-                        if abs(rw) < 550 or abs(rh) < 800:
+                        # Ignore full page backgrounds or large container frames
+                        if not (abs(rw) > 400 and abs(rh) > 300) and abs(rw) < 520 and abs(rh) < 700:
+                            curr_ctm = ctm_stack[-1]
+                            _, y1 = transform_pt(curr_ctm, rx, ry)
+                            _, y2 = transform_pt(curr_ctm, rx + rw, ry + rh)
                             y_coords.extend([min(y1, y2), max(y1, y2)])
+                    except Exception:
+                        pass
+                stack.clear()
+            elif tok in ("m", "l"):
+                if len(stack) >= 2:
+                    try:
+                        px, py = float(stack[-2]), float(stack[-1])
+                        curr_ctm = ctm_stack[-1]
+                        _, ty = transform_pt(curr_ctm, px, py)
+                        y_coords.append(ty)
                     except Exception:
                         pass
                 stack.clear()
@@ -249,10 +278,10 @@ def _get_page_content_bounds(page):
                 curr_ctm = ctm_stack[-1]
                 _, y1 = transform_pt(curr_ctm, 0, 0)
                 _, y2 = transform_pt(curr_ctm, 1, 1)
-                if abs(y2 - y1) < 800:
+                if abs(y2 - y1) < 700:
                     y_coords.extend([min(y1, y2), max(y1, y2)])
                 stack.clear()
-            elif tok in ("ET", "m", "l", "c", "v", "y", "h", "B", "B*", "b", "b*", "f", "f*", "s", "S", "n", "W", "W*", "rg", "RG", "g", "G", "k", "K", "cs", "CS", "sc", "SC", "scn", "SCN", "Tf", "TL", "Tr", "Ts", "Tw", "Tz", "T*", "Tj", "TJ", "d", "gs"):
+            elif tok in ("ET", "c", "v", "y", "h", "B", "B*", "b", "b*", "f", "f*", "s", "S", "n", "W", "W*", "rg", "RG", "g", "G", "k", "K", "cs", "CS", "sc", "SC", "scn", "SCN", "Tf", "Tr", "Ts", "Tw", "Tz", "Tj", "TJ", "d", "gs"):
                 stack.clear()
             else:
                 stack.append(tok)
@@ -912,7 +941,13 @@ class PdfReportBuilder:
                 _apply_solution_color(page)
 
             if should_trim:
-                _trim_whitespace_margins(page)
+                min_y, max_y, content_h = _get_page_content_bounds(page)
+                mb = page.mediabox
+                w = float(mb.width)
+                h = float(mb.height)
+                bottom_crop = max(15.0, min_y - 20.0)
+                page.cropbox.lower_left = (18.0, bottom_crop)
+                page.cropbox.upper_right = (w - 18.0, h - 12.0)
             added_page = writer.add_page(page)
 
             w = float(page.mediabox.width)
