@@ -205,12 +205,22 @@ def main(page: ft.Page):
     def set_ui_busy(busy: bool):
         nonlocal is_busy
         is_busy = busy
-        # Disable top & selector bar controls
+        # Disable & visually gray out top & selector bar controls
         sync_button.disabled = busy
+        sync_button.opacity = 0.5 if busy else 1.0
+
         export_all_button.disabled = busy
+        export_all_button.opacity = 0.5 if busy else 1.0
+
         settings_button.disabled = busy
+        settings_button.opacity = 0.5 if busy else 1.0
+
         folder_button.disabled = busy
+        folder_button.opacity = 0.5 if busy else 1.0
+
         export_chapter_button.disabled = busy
+        export_chapter_button.opacity = 0.5 if busy else 1.0
+
         type_dropdown.disabled = busy
         class_dropdown.disabled = busy or (selected_school_type is None)
         subject_dropdown.disabled = busy or (selected_class is None)
@@ -218,7 +228,7 @@ def main(page: ft.Page):
         qtype_dropdown.disabled = busy
         search_field.disabled = busy
 
-        # Disable all item cards
+        # Visually gray out all item cards
         for card in items_column.controls:
             if hasattr(card, "set_enabled"):
                 card.set_enabled(not busy)
@@ -366,13 +376,15 @@ def main(page: ft.Page):
         if is_busy:
             return
 
+        # ⚡ Immediately lock & gray out UI on current UI turn
+        set_ui_busy(True)
+        progress_bar.visible = True
+        status_text.value = f"Φόρτωση θεμάτων για: {subject.name}..."
+        page.update()
+
         def worker():
             nonlocal all_items, selected_subject
             selected_subject = subject
-            set_ui_busy(True)
-            progress_bar.visible = True
-            status_text.value = f"Φόρτωση θεμάτων για: {subject.name}..."
-            page.update()
 
             log_console.log(f"Φόρτωση θεμάτων: {subject.name} (ID: {subject.id})...")
 
@@ -506,9 +518,13 @@ def main(page: ft.Page):
             show_snackbar("Δεν υπάρχουν θέματα για εξαγωγή.", is_error=True)
             return
 
+        # ⚡ Immediately lock & gray out all UI controls synchronously
+        set_ui_busy(True)
+        progress_bar.visible = True
+        status_text.value = "Έναρξη εξαγωγής PDF..."
+        page.update()
+
         def worker():
-            set_ui_busy(True)
-            progress_bar.visible = True
             target_chapter = selected_chapter if (only_selected_chapter and selected_chapter != "ALL") else None
             items_to_export = [
                 it for it in all_items

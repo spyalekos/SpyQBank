@@ -277,7 +277,7 @@ class QuestionCard(ft.Container):
         )
 
     def set_enabled(self, enabled: bool):
-        """Enable or disable all action buttons on this card."""
+        """Enable or disable all action buttons on this card with visual graying out."""
         self.view_assign_btn.disabled = not enabled
         self.dl_assign_btn.disabled = not enabled
         if self.doc_assign_btn:
@@ -286,6 +286,7 @@ class QuestionCard(ft.Container):
         self.dl_sol_btn.disabled = not enabled
         if self.doc_sol_btn:
             self.doc_sol_btn.disabled = not enabled
+        self.opacity = 1.0 if enabled else 0.45
 
     def _open_url(self, url: str):
         try:
