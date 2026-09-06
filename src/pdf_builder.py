@@ -19,6 +19,7 @@ from reportlab.pdfgen import canvas
 from src.models import QuestionItem
 from src.iep_api import IepApiClient
 from src.storage import StorageManager
+from src.config import load_config
 
 logger = logging.getLogger("SpyQBank.PdfBuilder")
 
@@ -86,23 +87,43 @@ class PdfReportBuilder:
         self,
         width: float,
         height: float,
-        header_text: Optional[str],
-        page_num: Optional[int]
+        header_right_text: Optional[str],
+        page_num: Optional[int],
+        header_center_text: Optional[str] = None,
+        footer_center_text: Optional[str] = None
     ):
-        """Generate a transparent overlay page with top-right question header and bottom-right page number."""
+        """
+        Generate a transparent overlay page with:
+        - Top-Center: Custom Title from Settings
+        - Top-Right: Question Header (# θέματος)
+        - Bottom-Center: Custom Footer Text from Settings
+        - Bottom-Right: Page Number (- χχ -)
+        """
         packet = io.BytesIO()
         c = canvas.Canvas(packet, pagesize=(width, height))
 
         font_bold = FONT_BOLD if FONT_BOLD in pdfmetrics.getRegisteredFontNames() else "Helvetica-Bold"
         font_regular = FONT_REGULAR if FONT_REGULAR in pdfmetrics.getRegisteredFontNames() else "Helvetica"
 
-        # Top-right Header (# θέματος)
-        if header_text:
+        # 1. Top-Center Header (Custom Title from Settings)
+        if header_center_text:
+            c.setFont(font_bold, 9)
+            c.setFillColor(colors.HexColor("#334155"))
+            c.drawCentredString(width / 2.0, height - 25, header_center_text)
+
+        # 2. Top-Right Header (# θέματος)
+        if header_right_text:
             c.setFont(font_bold, 9)
             c.setFillColor(colors.HexColor("#1E3A8A"))
-            c.drawRightString(width - 35, height - 25, header_text)
+            c.drawRightString(width - 35, height - 25, header_right_text)
 
-        # Bottom-right Page Number (- χχ -)
+        # 3. Bottom-Center Footer (Custom Footer from Settings)
+        if footer_center_text:
+            c.setFont(font_regular, 8.5)
+            c.setFillColor(colors.HexColor("#475569"))
+            c.drawCentredString(width / 2.0, 20, footer_center_text)
+
+        # 4. Bottom-Right Page Number (- χχ -)
         if page_num is not None:
             c.setFont(font_regular, 9)
             c.setFillColor(colors.HexColor("#64748B"))
@@ -224,14 +245,22 @@ class PdfReportBuilder:
         output_path: str,
         subject_name: str,
         chapter_name: Optional[str] = None,
-        progress_callback: Optional[Callable[[str, float], None]] = None
+        progress_callback: Optional[Callable[[str, float], None]] = None,
+        custom_header_title: Optional[str] = None,
+        custom_footer_text: Optional[str] = None
     ) -> str:
         """
         Merge all items (Question + Solution paired sequentially) into a single PDF,
-        with top-right question header (# θέματος) and bottom-right pagination (- χχ -).
+        with custom centered header title, top-right question header, centered footer text,
+        and bottom-right pagination (- χχ -).
         Includes automatic fallback with a 3-digit random number if the target file is locked.
         """
         writer = PdfWriter()
+
+        # Load config if not explicitly passed
+        cfg = load_config()
+        hdr_center = custom_header_title if custom_header_title is not None else cfg.get("custom_header_title", "")
+        ftr_center = custom_footer_text if custom_footer_text is not None else cfg.get("custom_footer_text", "")
 
         # Deduplicate items
         unique_items_map = {it.id: it for it in items}
@@ -242,7 +271,7 @@ class PdfReportBuilder:
         if progress_callback:
             progress_callback("Προετοιμασία εξωφύλλου...", 0.05)
 
-        # 1. Add Cover Page (no page number, no header)
+        # 1. Add Cover Page (no page number, no header/footer overlay)
         cover_title = f"Τράπεζα Θεμάτων: {subject_name}"
         cover_sub = chapter_name if chapter_name else "Όλα τα Κεφάλαια"
         meta = [
@@ -272,10 +301,17 @@ class PdfReportBuilder:
                 div_reader = PdfReader(ch_divider_stream)
                 div_page = div_reader.pages[0]
 
-                # Overlay page number and header on chapter divider
+                # Overlay on chapter divider
                 w = float(div_page.mediabox.width)
                 h = float(div_page.mediabox.height)
-                overlay = self._create_header_footer_overlay(w, h, f"📁 {ch_title}", current_page_number)
+                overlay = self._create_header_footer_overlay(
+                    width=w,
+                    height=h,
+                    header_right_text=f"📁 {ch_title}",
+                    page_num=current_page_number,
+                    header_center_text=hdr_center,
+                    footer_center_text=ftr_center
+                )
                 div_page.merge_page(overlay)
 
                 writer.add_page(div_page)
@@ -318,7 +354,14 @@ class PdfReportBuilder:
                             w = float(page.mediabox.width)
                             h = float(page.mediabox.height)
                             header_txt = f"{it.question_label} #{it.id} (Εκφώνηση)"
-                            overlay = self._create_header_footer_overlay(w, h, header_txt, current_page_number)
+                            overlay = self._create_header_footer_overlay(
+                                width=w,
+                                height=h,
+                                header_right_text=header_txt,
+                                page_num=current_page_number,
+                                header_center_text=hdr_center,
+                                footer_center_text=ftr_center
+                            )
                             page.merge_page(overlay)
 
                             writer.add_page(page)
@@ -344,7 +387,14 @@ class PdfReportBuilder:
                             w = float(page.mediabox.width)
                             h = float(page.mediabox.height)
                             header_txt = f"{it.question_label} #{it.id} (Απάντηση)"
-                            overlay = self._create_header_footer_overlay(w, h, header_txt, current_page_number)
+                            overlay = self._create_header_footer_overlay(
+                                width=w,
+                                height=h,
+                                header_right_text=header_txt,
+                                page_num=current_page_number,
+                                header_center_text=hdr_center,
+                                footer_center_text=ftr_center
+                            )
                             page.merge_page(overlay)
 
                             writer.add_page(page)

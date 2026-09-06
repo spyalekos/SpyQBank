@@ -13,6 +13,7 @@ from src.models import SchoolType, ClassLevel, Subject, QuestionItem
 from src.iep_api import IepApiClient
 from src.storage import StorageManager
 from src.pdf_builder import PdfReportBuilder
+from src.config import load_config, save_config
 from src.ui.theme import (
     PRIMARY,
     PRIMARY_LIGHT,
@@ -25,6 +26,7 @@ from src.ui.theme import (
 )
 from src.ui.log_console import LogConsole
 from src.ui.question_card import QuestionCard
+from src.ui.settings_dialog import SettingsDialog
 
 
 def main(page: ft.Page):
@@ -131,6 +133,12 @@ def main(page: ft.Page):
         )
         page.snack_bar.open = True
         page.update()
+
+    def on_settings_saved(new_cfg: dict):
+        log_console.log("Οι ρυθμίσεις επικεφαλίδας και υποσέλιδου αποθηκεύτηκαν στο spyqbank.json.", "SUCCESS")
+        show_snackbar("Οι ρυθμίσεις αποθηκεύτηκαν επιτυχώς!")
+
+    settings_dialog = SettingsDialog(page, on_save_callback=on_settings_saved)
 
     # --- Actions & Handlers ---
 
@@ -549,6 +557,12 @@ def main(page: ft.Page):
                             ),
                             tooltip="Δημιουργία ενιαίου PDF με όλα τα θέματα και τις λύσεις τους",
                             on_click=lambda e: handle_export_pdf(e, only_selected_chapter=False)
+                        ),
+                        ft.IconButton(
+                            icon=ft.Icons.SETTINGS,
+                            tooltip="Ρυθμίσεις Επικεφαλίδας & Υποσέλιδου PDF",
+                            icon_color=ft.Colors.WHITE,
+                            on_click=lambda _: settings_dialog.show()
                         ),
                         ft.IconButton(
                             icon=ft.Icons.FOLDER_OPEN,
