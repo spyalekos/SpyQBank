@@ -3,6 +3,7 @@
 import os
 import io
 import html
+import random
 import logging
 from typing import List, Optional, Callable, Dict
 from pypdf import PdfWriter, PdfReader
@@ -228,6 +229,7 @@ class PdfReportBuilder:
         """
         Merge all items (Question + Solution paired sequentially) into a single PDF,
         with top-right question header (# θέματος) and bottom-right pagination (- χχ -).
+        Includes automatic fallback with a 3-digit random number if the target file is locked.
         """
         writer = PdfWriter()
 
@@ -368,10 +370,21 @@ class PdfReportBuilder:
             progress_callback("Αποθήκευση τελικού αρχείου PDF...", 0.98)
 
         os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
-        with open(output_path, "wb") as f:
-            writer.write(f)
+        final_path = output_path
+        try:
+            with open(final_path, "wb") as f:
+                writer.write(f)
+        except PermissionError:
+            base, ext = os.path.splitext(output_path)
+            rand_suffix = random.randint(100, 999)
+            final_path = f"{base}_{rand_suffix}{ext}"
+            logger.warning(f"File locked ({output_path}), saving with random suffix to: {final_path}")
+            if progress_callback:
+                progress_callback(f"Το αρχείο ήταν ανοιχτό. Αποθήκευση ως: {os.path.basename(final_path)}", 0.99)
+            with open(final_path, "wb") as f:
+                writer.write(f)
 
         if progress_callback:
             progress_callback("Ολοκληρώθηκε με επιτυχία!", 1.0)
 
-        return output_path
+        return final_path

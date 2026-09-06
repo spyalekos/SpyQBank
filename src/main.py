@@ -141,14 +141,14 @@ def main(page: ft.Page):
             url = item.get_assignment_pdf_url() if file_type == 1 else item.get_solution_pdf_url()
             dest = storage.get_pdf_cache_path(item.id, file_type)
             try:
-                api_client.download_file(url, dest)
-                if os.path.exists(dest):
+                final_dest = api_client.download_file(url, dest)
+                if os.path.exists(final_dest):
                     # Open locally
                     if sys.platform == "win32":
-                        os.startfile(dest)
+                        os.startfile(final_dest)
                     else:
-                        webbrowser.open(f"file://{os.path.abspath(dest)}")
-                    log_console.log(f"Άνοιξε το αρχείο: {dest}", "SUCCESS")
+                        webbrowser.open(f"file://{os.path.abspath(final_dest)}")
+                    log_console.log(f"Άνοιξε το αρχείο: {os.path.basename(final_dest)}", "SUCCESS")
                 else:
                     webbrowser.open(url)
             except Exception as e:
@@ -168,9 +168,10 @@ def main(page: ft.Page):
             url = item.get_assignment_pdf_url() if file_type == 1 else item.get_solution_pdf_url()
             log_console.log(f"Λήψη PDF στο φάκελο downloads: {filename}...")
             try:
-                api_client.download_file(url, dest, force=True)
-                log_console.log(f"Αποθηκεύτηκε στο: {dest}", "SUCCESS")
-                show_snackbar(f"Αποθηκεύτηκε: {filename}")
+                saved_path = api_client.download_file(url, dest, force=True)
+                saved_name = os.path.basename(saved_path)
+                log_console.log(f"Αποθηκεύτηκε στο: {saved_path}", "SUCCESS")
+                show_snackbar(f"Αποθηκεύτηκε: {saved_name}")
             except Exception as e:
                 log_console.log(f"Σφάλμα αποθήκευσης: {e}", "ERROR")
                 show_snackbar(f"Σφάλμα λήψης: {e}", is_error=True)
@@ -425,8 +426,9 @@ def main(page: ft.Page):
                     chapter_name=target_chapter,
                     progress_callback=on_pdf_progress
                 )
+                final_filename = os.path.basename(final_pdf)
                 log_console.log(f"Το PDF δημιουργήθηκε επιτυχώς: {final_pdf}", "SUCCESS")
-                show_snackbar(f"Το PDF δημιουργήθηκε: {pdf_filename}")
+                show_snackbar(f"Το PDF δημιουργήθηκε: {final_filename}")
 
                 # Open the generated PDF
                 if sys.platform == "win32":

@@ -2,6 +2,7 @@
 
 import os
 import json
+import random
 import logging
 import urllib.request
 import urllib.error
@@ -66,13 +67,13 @@ class IepApiClient:
         return items
 
     def download_file(self, url: str, destination_path: str, force: bool = False) -> str:
-        """Download a file (PDF/DOCX) to a destination path if not already cached."""
+        """Download a file (PDF/DOCX) to a destination path with locked file fallback."""
         if os.path.exists(destination_path) and os.path.getsize(destination_path) > 0 and not force:
             logger.debug(f"File already cached: {destination_path}")
             return destination_path
 
         os.makedirs(os.path.dirname(destination_path), exist_ok=True)
-        temp_path = destination_path + ".tmp"
+        temp_path = destination_path + f".tmp_{random.randint(100, 999)}"
 
         logger.info(f"Downloading {url} -> {destination_path}")
         resp = self.session.get(url, stream=True, timeout=40)
@@ -83,7 +84,20 @@ class IepApiClient:
                 if chunk:
                     f.write(chunk)
 
-        if os.path.exists(destination_path):
-            os.remove(destination_path)
-        os.rename(temp_path, destination_path)
-        return destination_path
+        try:
+            if os.path.exists(destination_path):
+                os.remove(destination_path)
+            os.rename(temp_path, destination_path)
+            return destination_path
+        except PermissionError:
+            base, ext = os.path.splitext(destination_path)
+            rand_suffix = random.randint(100, 999)
+            new_path = f"{base}_{rand_suffix}{ext}"
+            logger.warning(f"Destination locked ({destination_path}), saved with random suffix to {new_path}")
+            if os.path.exists(new_path):
+                try:
+                    os.remove(new_path)
+                except Exception:
+                    pass
+            os.rename(temp_path, new_path)
+            return new_path
