@@ -64,8 +64,13 @@ class SettingsDialog:
                 padding=10
             ),
             actions=[
-                ft.TextButton(
-                    text="Ακύρωση",
+                ft.Button(
+                    content=ft.Text("Ακύρωση", color=TEXT_MUTED),
+                    style=ft.ButtonStyle(
+                        bgcolor=ft.Colors.TRANSPARENT,
+                        shape=ft.RoundedRectangleBorder(radius=6),
+                        padding=ft.Padding(16, 10, 16, 10)
+                    ),
                     on_click=self._on_cancel
                 ),
                 ft.Button(
@@ -86,7 +91,8 @@ class SettingsDialog:
         self.cfg = load_config()
         self.header_field.value = self.cfg.get("custom_header_title", "")
         self.footer_field.value = self.cfg.get("custom_footer_text", "")
-        self.page.overlay.append(self.dialog)
+        if self.dialog not in self.page.overlay:
+            self.page.overlay.append(self.dialog)
         self.dialog.open = True
         self.page.update()
 
