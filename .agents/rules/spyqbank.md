@@ -29,9 +29,15 @@ trigger: always
      - `3`: ZIP όλων των αρχείων
    - **Τοπική Αποθήκευση & Cache**: Αποθήκευση JSON metadata και PDF αρχείων τοπικά (π.χ. σε φάκελο `data/` ή `cache/`) για ταχύτατη πρόσβαση και offline λειτουργία.
 
-3. **PDF Generation & Merging Engine (`src/pdf_builder.py`)**:
-   - Χρήση `pypdf` ή PyMuPDF (`pymupdf` / `fitz`) ή `reportlab` για συγχώνευση (interleaving) εκφώνησης και απάντησης.
-   - Δημιουργία καθαρού σελιδοποιημένου PDF με TOC (Πίνακα Περιεχομένων) ή headers ανά κεφάλαιο.
+3. **PDF Generation & Smart Packing Engine (`src/pdf_builder.py`)**:
+   - **Χρωματική Διάκριση**: Μαύρα γράμματα στις εκφωνήσεις, σκούρο navy μπλε (`#0D338C` / `0.06 0.20 0.58 rg`) στις απαντήσεις μέσω άμεσης τροποποίησης του `/Contents` stream.
+   - **Smart Continuous Packing**: Δυναμικός υπολογισμός ορίων περιεχομένου (`_get_page_content_bounds`) μέσω ανάλυσης CTM (`cm`, `Tm`, `Td`, `re`, `Do`) και συνεχής στοίβαξη εκφωνήσεων-απαντήσεων με `pypdf.Transformation().translate()` όταν `trim_whitespace=True`.
+   - **Right-Aligned Inline Badges**: Στοίχιση κωδικού `#<id>` τέρμα δεξιά (`drawRightString(width - 35, y_pos, ...)`) στην ίδια οριζόντια γραμμή με τον τίτλο του θέματος/απάντησης.
+   - **Διαχωριστικά Κεφαλαίων & Σελιδοδείκτες**: Δυνατότητα παράλειψης των divider pages (`include_chapter_covers=False`) με διατήρηση έναρξης κεφαλαίου σε νέα σελίδα και πλήρες δέντρο bookmarks/outlines.
+   - **Locked File Fallback**: Σε `PermissionError`, αυτόματη προσθήκη τυχαίου τριψήφιου επιθέματος (`_xxx.pdf`).
+
+4. **Settings & Persistent Config (`src/config.py`, `src/ui/settings_dialog.py`)**:
+   - Αποθήκευση στο `spyqbank.json` των ρυθμίσεων: `custom_header_title` (αριστερή στοίχιση πάνω), `custom_footer_text` (κέντρο κάτω), `trim_whitespace` (bool), και `include_chapter_covers` (bool).
 
 ## 🛠️ Κανόνες Ανάπτυξης & Flet Invariants
 
