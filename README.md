@@ -1,4 +1,4 @@
-# 📚 SpyQBank v1.2.7
+# 📚 SpyQBank v1.2.8
 
 **SpyQBank** - Εφαρμογή Python & Flet για την οργάνωση, ταξινόμηση και διαχείριση της **Τράπεζας Θεμάτων του ΙΕΠ** (https://trapeza.iep.edu.gr/).
 

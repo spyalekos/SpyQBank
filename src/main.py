@@ -860,7 +860,7 @@ def main(page: ft.Page):
                                     ],
                                     spacing=8
                                 ),
-                                ft.Text("Τράπεζα Θεμάτων ΙΕΠ (Εκφωνήσεις & Απαντήσεις)", size=11, color="#94A3B8")
+                                ft.Text("Τράπεζα Θεμάτων ΙΕΠ (Εκφωνήσεις & Απαντήσεις)", size=13, weight=ft.FontWeight.W_500, color="#86EFAC")
                             ],
                             spacing=1,
                             alignment=ft.MainAxisAlignment.CENTER
