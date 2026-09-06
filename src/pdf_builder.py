@@ -370,7 +370,7 @@ class PdfReportBuilder:
             c.setFillColor(colors.HexColor("#0D338C"))
         else:
             c.setFillColor(colors.HexColor("#1E3A8A"))
-        c.drawString(140, y_pos, badge_text)
+        c.drawRightString(width - 35, y_pos, badge_text)
         c.save()
         packet.seek(0)
         return PdfReader(packet).pages[0]
