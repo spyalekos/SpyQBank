@@ -151,6 +151,60 @@ def main(page: ft.Page):
 
     settings_dialog = SettingsDialog(page, on_save_callback=on_settings_saved)
 
+    # Help Dialog
+    help_dialog = ft.AlertDialog(
+        modal=True,
+        title=ft.Row(
+            controls=[
+                ft.Icon(ft.Icons.HELP_OUTLINE, color=PRIMARY, size=24),
+                ft.Text(f"Βοήθεια & Οδηγίες Χρήσης - {APP_NAME}", weight=ft.FontWeight.BOLD, size=17),
+            ],
+            spacing=8
+        ),
+        content=ft.Container(
+            content=ft.Column(
+                controls=[
+                    ft.Text("Βασικές Λειτουργίες της Εφαρμογής:", weight=ft.FontWeight.BOLD, size=13, color=PRIMARY_DARK),
+                    ft.Text("• 🏫 Επιλογή Μαθήματος: Επιλέξτε Τύπο Σχολείου (ΓΕΛ / ΕΠΑΛ), Τάξη και Μάθημα από την πάνω μπάρα για να φορτωθούν τα θέματα.", size=12, color=TEXT_MAIN),
+                    ft.Text("• 📂 Φιλτράρισμα: Χρησιμοποιήστε το φίλτρο Κεφαλαίου, Τύπου Θέματος (1ο, 2ο, 3ο, 4ο) ή την Αναζήτηση με λέξεις-κλειδιά.", size=12, color=TEXT_MAIN),
+                    ft.Text("• 💡 Ζεύγη Θεμάτων-Απαντήσεων: Κάθε κάρτα θέματος περιέχει άμεσα κουμπιά προβολής και λήψης της Εκφώνησης και της Λύσης.", size=12, color=TEXT_MAIN),
+                    ft.Text("• 📑 Εξαγωγή σε PDF: Πατήστε «Εξαγωγή Όλων σε PDF» ή «PDF Κεφαλαίου» για να δημιουργήσετε ενιαίο PDF με όλα τα θέματα και τις απαντήσεις τους στη σειρά.", size=12, color=TEXT_MAIN),
+                    ft.Text("• 🎨 Χρωματισμός & Trimming: Οι εκφωνήσεις εμφανίζονται με μαύρα γράμματα και οι απαντήσεις με σκούρο μπλε. Στις Ρυθμίσεις (⚙️) μπορείτε να ελέγξετε την αφαίρεση κενού χώρου και τις διαχωριστικές σελίδες.", size=12, color=TEXT_MAIN),
+                    ft.Text("• ⚡ Offline Cache: Τα μεταδεδομένα και τα αρχεία αποθηκεύονται τοπικά για άμεση offline πρόσβαση.", size=12, color=TEXT_MAIN),
+                    ft.Divider(height=10, color=BORDER_COLOR),
+                    ft.Text(f"Έκδοση: v{__version__} | Τράπεζα Θεμάτων ΙΕΠ (https://trapeza.iep.edu.gr)", size=11, color=TEXT_MUTED, italic=True),
+                ],
+                tight=True,
+                spacing=8,
+                scroll=ft.ScrollMode.AUTO,
+            ),
+            width=540,
+            padding=10,
+        ),
+        actions=[
+            ft.Button(
+                content=ft.Text("Κλείσιμο", color=ft.Colors.WHITE, weight=ft.FontWeight.BOLD),
+                style=ft.ButtonStyle(
+                    bgcolor=PRIMARY,
+                    shape=ft.RoundedRectangleBorder(radius=6),
+                    padding=ft.Padding(16, 10, 16, 10)
+                ),
+                on_click=lambda e: _close_help()
+            ),
+        ],
+        actions_alignment=ft.MainAxisAlignment.END,
+    )
+
+    def _show_help():
+        if help_dialog not in page.overlay:
+            page.overlay.append(help_dialog)
+        help_dialog.open = True
+        page.update()
+
+    def _close_help():
+        help_dialog.open = False
+        page.update()
+
     # Action Controls references for disabling during operations
     prefetch_epal_button = ft.Button(
         content=ft.Row(
@@ -205,6 +259,11 @@ def main(page: ft.Page):
         tooltip="Ρυθμίσεις Επικεφαλίδας & Υποσέλιδου PDF",
         icon_color=ft.Colors.WHITE,
     )
+    help_button = ft.IconButton(
+        icon=ft.Icons.HELP_OUTLINE,
+        tooltip="Οδηγίες & Βοήθεια",
+        icon_color=ft.Colors.WHITE,
+    )
     folder_button = ft.IconButton(
         icon=ft.Icons.FOLDER_OPEN,
         tooltip="Άνοιγμα φακέλου Downloads",
@@ -244,6 +303,9 @@ def main(page: ft.Page):
 
         settings_button.disabled = busy
         settings_button.opacity = 0.5 if busy else 1.0
+
+        help_button.disabled = busy
+        help_button.opacity = 0.5 if busy else 1.0
 
         folder_button.disabled = busy
         folder_button.opacity = 0.5 if busy else 1.0
@@ -734,6 +796,7 @@ def main(page: ft.Page):
     sync_button.on_click = handle_sync_check
     export_all_button.on_click = lambda e: handle_export_pdf(e, only_selected_chapter=False)
     settings_button.on_click = lambda _: settings_dialog.show() if not is_busy else None
+    help_button.on_click = lambda _: _show_help() if not is_busy else None
     folder_button.on_click = lambda _: (os.startfile(os.path.abspath("downloads")) if sys.platform == "win32" else webbrowser.open(f"file://{os.path.abspath('downloads')}")) if not is_busy else None
     export_chapter_button.on_click = lambda e: handle_export_pdf(e, only_selected_chapter=True)
 
@@ -813,6 +876,7 @@ def main(page: ft.Page):
                         sync_button,
                         export_all_button,
                         settings_button,
+                        help_button,
                         folder_button
                     ],
                     spacing=8

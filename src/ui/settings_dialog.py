@@ -30,13 +30,49 @@ class SettingsDialog:
         )
 
         self.trim_switch = ft.Switch(
-            label="Αφαίρεση κενού χώρου (White Space Trimming στα περιθώρια και κενές γραμμές)",
             value=self.cfg.get("trim_whitespace", True),
         )
 
+        self.trim_control = ft.Row(
+            controls=[
+                self.trim_switch,
+                ft.Container(
+                    content=ft.Column(
+                        controls=[
+                            ft.Text("Αφαίρεση κενού χώρου (Smart Packing & Whitespace Trimming)", size=13, weight=ft.FontWeight.W_500, color=TEXT_MAIN),
+                            ft.Text("Συνεχής κάθετη ροή και αφαίρεση περιττών λευκών περιθωρίων/κενών γραμμών στα παραγόμενα PDF.", size=11, color=TEXT_MUTED),
+                        ],
+                        spacing=1,
+                    ),
+                    expand=True,
+                    on_click=lambda e: self._toggle_trim(),
+                ),
+            ],
+            spacing=10,
+            vertical_alignment=ft.CrossAxisAlignment.CENTER,
+        )
+
         self.chapter_dividers_switch = ft.Switch(
-            label="Σελίδες διαχωρισμού κεφαλαίων (Chapter Dividers)",
             value=self.cfg.get("include_chapter_covers", True),
+        )
+
+        self.chapter_dividers_control = ft.Row(
+            controls=[
+                self.chapter_dividers_switch,
+                ft.Container(
+                    content=ft.Column(
+                        controls=[
+                            ft.Text("Σελίδες διαχωρισμού κεφαλαίων (Chapter Dividers)", size=13, weight=ft.FontWeight.W_500, color=TEXT_MAIN),
+                            ft.Text("Εμφάνιση ενδιάμεσων διαχωριστικών σελίδων στην αρχή κάθε κεφαλαίου.", size=11, color=TEXT_MUTED),
+                        ],
+                        spacing=1,
+                    ),
+                    expand=True,
+                    on_click=lambda e: self._toggle_chapter_dividers(),
+                ),
+            ],
+            spacing=10,
+            vertical_alignment=ft.CrossAxisAlignment.CENTER,
         )
 
         self.dialog = ft.AlertDialog(
@@ -61,9 +97,9 @@ class SettingsDialog:
                         ft.Divider(height=5, color=ft.Colors.TRANSPARENT),
                         self.footer_field,
                         ft.Divider(height=5, color=ft.Colors.TRANSPARENT),
-                        self.trim_switch,
+                        self.trim_control,
                         ft.Divider(height=5, color=ft.Colors.TRANSPARENT),
-                        self.chapter_dividers_switch,
+                        self.chapter_dividers_control,
                         ft.Text(
                             "Οι ρυθμίσεις αποθηκεύονται αυτόματα στο αρχείο spyqbank.json στον φάκελο της εφαρμογής.",
                             size=11,
@@ -112,6 +148,14 @@ class SettingsDialog:
         self.dialog.open = True
         self.page.update()
 
+    def _toggle_trim(self):
+        self.trim_switch.value = not self.trim_switch.value
+        self.page.update()
+
+    def _toggle_chapter_dividers(self):
+        self.chapter_dividers_switch.value = not self.chapter_dividers_switch.value
+        self.page.update()
+
     def _on_cancel(self, e):
         self.dialog.open = False
         self.page.update()
@@ -129,3 +173,4 @@ class SettingsDialog:
 
         if self.on_save_callback:
             self.on_save_callback(new_cfg)
+
