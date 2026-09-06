@@ -18,7 +18,6 @@ class LogConsole(ft.Container):
             size=11,
             color="#94A3B8",
             selectable=True,
-            width=700,
         )
 
         self.scroll_col = ft.Column(
@@ -27,6 +26,7 @@ class LogConsole(ft.Container):
             auto_scroll=True,
             spacing=0,
             tight=True,
+            expand=True,
         )
 
         super().__init__(
@@ -36,7 +36,7 @@ class LogConsole(ft.Container):
             border_radius=8,
             padding=ft.Padding(10, 8, 10, 8),
             height=height,
-            expand=False,
+            expand=True,
         )
 
     def log(self, message: str, level: str = "INFO"):
