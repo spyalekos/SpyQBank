@@ -22,6 +22,7 @@ from src.models import QuestionItem
 from src.iep_api import IepApiClient
 from src.storage import StorageManager
 from src.config import load_config
+from src.version import __version__
 
 logger = logging.getLogger("SpyQBank.PdfBuilder")
 
@@ -626,6 +627,15 @@ class PdfReportBuilder:
             "https://www.iep.edu.gr/trapeza-thematon-arxiki-selida/"
         )
         story.append(Paragraph(iep_full_notice, iep_cover_style))
+        story.append(Spacer(1, 12))
+        version_style = ParagraphStyle(
+            'CoverVersion',
+            parent=meta_style,
+            fontSize=9,
+            leading=13,
+            textColor=colors.HexColor('#475569')
+        )
+        story.append(Paragraph(f"Έκδοση εφαρμογής: SpyQBank v{__version__}", version_style))
 
         doc.build(story)
         packet.seek(0)
@@ -935,12 +945,7 @@ class PdfReportBuilder:
                                     current_y = 790.0
                                     page_has_content = False
 
-                                # Position slice onto current packed page with tight cropbox clipping
-                                w_slice = float(page.mediabox.width)
-                                h_slice = float(page.mediabox.height)
-                                page.cropbox.lower_left = (0, max(0.0, min_y - 2.0))
-                                page.cropbox.upper_right = (w_slice, min(h_slice, max_y + 2.0))
-
+                                # Position slice onto current packed page
                                 dy = current_y - max_y
                                 page.add_transformation(Transformation().translate(tx=0, ty=dy))
                                 current_packed_page.merge_page(page)
