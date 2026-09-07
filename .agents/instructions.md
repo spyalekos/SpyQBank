@@ -74,7 +74,13 @@
 
 ## 📍 Τελευταία Γνωστή Κατάσταση (Last Known State)
 
-### 🚀 ΤΡΕΧΟΥΣΑ ΕΚΔΟΣΗ: v1.3.1 (SpyQBank)
+### 🚀 ΤΡΕΧΟΥΣΑ ΕΚΔΟΣΗ: v1.3.3 (SpyQBank)
+- **Πλήρης Διόρθωση Χρωματισμού Απαντήσεων με Custom Colorspace PDF (v1.3.3)**:
+  - Εντοπίστηκε και επιλύθηκε κρίσιμο σφάλμα που εμπόδιζε τον χρωματισμό απαντήσεων σε PDF του ΙΕΠ που παράγονται από Word export με custom colorspace (π.χ. θέμα #19905).
+  - **Αιτία**: Τα Word-export PDF χρησιμοποιούν τον τελεστή `/Cs1 cs` (custom ICC colorspace) πριν τις εντολές `0 0 0 sc`. Ενώ το `sc` μετατρεπόταν σωστά σε `rg`, το `/Cs1 cs` declaration παρέμενε αναλλοίωτο. Strict PDF renderers (Adobe, Chrome PDF) απαιτούν ο colorspace operator να συμφωνεί με τον color-setting operator: αφού υπάρχει custom `cs`, περιμένουν `sc` όχι `rg`, και έτσι αγνοούσαν το `rg` → το κείμενο παρέμενε μαύρο.
+  - **Διόρθωση**: Προστέθηκε **Step 0** στη `_recolor_stream_to_dark_blue` που κανονικοποιεί κάθε custom colorspace declaration: `/CsX cs` → `/DeviceRGB cs` και `/CsX CS` → `/DeviceRGB CS` (με εξαίρεση τα ήδη-standard `/DeviceRGB`, `/DeviceGray`, `/DeviceCMYK`). Έτσι, μετά τη μετατροπή `sc` → `rg`, το colorspace context είναι πάντα `/DeviceRGB` και κάθε PDF renderer αποδέχεται το `rg`/`RG`.
+  - Πάνω από 13 regression tests επαληθεύουν ότι παλαιότερα patterns (g/G, rg/RG, sc/SC, scn/SCN, k/K, /Pattern cs, white/light colors) συνεχίζουν να λειτουργούν αναλλοίωτα.
+
 - **Διόρθωση Οριζόντιας Έκτασης Bottom Bar & LogConsole (v1.3.1)**:
   - Προσθήκη `horizontal_alignment=ft.CrossAxisAlignment.STRETCH` στο Column του `bottom_bar` και `scroll_col`, και `alignment=ft.Alignment(-1, -1)` στο Container ώστε η κονσόλα logs να εκτείνεται 100% από άκρη σε άκρη του παραθύρου χωρίς συρρίκνωση.
 - **Πλήρες Πλάτος Κονσόλας Καταγραφής (Full-Width LogConsole) (v1.3.0)**:

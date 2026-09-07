@@ -86,7 +86,12 @@ _register_greek_fonts()
 
 def _recolor_stream_to_dark_blue(raw_bytes: bytes) -> bytes:
     """
-    Recolor all dark grayscale, near-black, and dark RGB text, fills and strokes to dark navy blue (#0D338C).
+    Recolor all dark grayscale, near-black, and dark RGB/CMYK/ColorSpace text, fills and strokes
+    to dark navy blue (#0D338C). Handles g/G, rg/RG, sc/SC, scn/SCN, and k/K operators.
+    Also normalizes custom colorspace declarations (/CsX cs, /Pattern cs, etc.) to
+    /DeviceRGB cs/CS so that the converted 'rg'/'RG' operators are PDF-valid in context.
+    Without this step, strict PDF renderers (Word exports via IEP) keep text black because
+    they apply the custom colorspace state machine and ignore out-of-context 'rg'.
     Assignment retains crisp black text, Solution is fully converted to dark navy blue.
     """
     try:
@@ -102,24 +107,68 @@ def _recolor_stream_to_dark_blue(raw_bytes: bytes) -> bytes:
                 return f"{NAVY_R} {NAVY_G} {NAVY_B} rg" if op == "g" else f"{NAVY_R} {NAVY_G} {NAVY_B} RG"
             return match.group(0)
 
-        # Helper for RGB 'rg' / 'RG'
-        def replace_rgb(match):
+        # Helper for RGB / ColorSpace 'rg' / 'RG' / 'sc' / 'SC' / 'scn' / 'SCN' (3 components)
+        def replace_rgb_or_sc(match):
             r = float(match.group(1))
             g = float(match.group(2))
             b = float(match.group(3))
             op = match.group(4)
             # Convert dark colors (r,g,b all <= 0.45) to navy blue
             if r <= 0.45 and g <= 0.45 and b <= 0.45:
-                return f"{NAVY_R} {NAVY_G} {NAVY_B} rg" if op == "rg" else f"{NAVY_R} {NAVY_G} {NAVY_B} RG"
+                is_fill = op in ("rg", "sc", "scn")
+                return f"{NAVY_R} {NAVY_G} {NAVY_B} rg" if is_fill else f"{NAVY_R} {NAVY_G} {NAVY_B} RG"
             return match.group(0)
 
-        # 1. Match all grayscale operations (e.g. '0 g', '0.133 g', '0 G')
+        # Helper for single-component 'sc' / 'SC' / 'scn' / 'SCN' (1 component grayscale)
+        def replace_single_sc(match):
+            val = float(match.group(1))
+            if val <= 0.40:
+                op = match.group(2)
+                is_fill = op in ("sc", "scn")
+                return f"{NAVY_R} {NAVY_G} {NAVY_B} rg" if is_fill else f"{NAVY_R} {NAVY_G} {NAVY_B} RG"
+            return match.group(0)
+
+        # Helper for CMYK 'k' / 'K'
+        def replace_cmyk(match):
+            c = float(match.group(1))
+            m = float(match.group(2))
+            y = float(match.group(3))
+            k = float(match.group(4))
+            op = match.group(5)
+            # If black component k is high or all are dark, convert to navy
+            if k >= 0.55 or (c <= 0.45 and m <= 0.45 and y <= 0.45 and k <= 0.45):
+                return f"{NAVY_R} {NAVY_G} {NAVY_B} rg" if op == "k" else f"{NAVY_R} {NAVY_G} {NAVY_B} RG"
+            return match.group(0)
+
+        # 0. Normalize custom colorspace declarations → /DeviceRGB cs / /DeviceRGB CS
+        #    IEP Word-exports use /Cs1 cs (or /Pattern cs, /Cs2 cs, etc.) before 'sc' operators.
+        #    After we convert 'sc' → 'rg', the preceding colorspace MUST also be /DeviceRGB
+        #    so strict PDF renderers accept the 'rg' operator in the correct context.
+        #    We replace any non-standard colorspace name with /DeviceRGB.
+        text = re.sub(
+            r"/(?!DeviceRGB\b|DeviceGray\b|DeviceCMYK\b)(?:[A-Za-z][A-Za-z0-9_.]*)\s+cs\b",
+            "/DeviceRGB cs",
+            text
+        )
+        text = re.sub(
+            r"/(?!DeviceRGB\b|DeviceGray\b|DeviceCMYK\b)(?:[A-Za-z][A-Za-z0-9_.]*)\s+CS\b",
+            "/DeviceRGB CS",
+            text
+        )
+
+        # 1. Match CMYK operations (4 numbers)
+        text = re.sub(r"(?<![0-9.])([0-9.]+)\s+([0-9.]+)\s+([0-9.]+)\s+([0-9.]+)\s+([kK])(?![a-zA-Z0-9])", replace_cmyk, text)
+
+        # 2. Match 3-component RGB and sc/scn operations (e.g. '0 0 0 rg', '0 0 0 sc', '0 0 0 scn')
+        text = re.sub(r"(?<![0-9.])([0-9.]+)\s+([0-9.]+)\s+([0-9.]+)\s+([rR][gG]|[sS][cC][nN]?)(?![a-zA-Z0-9])", replace_rgb_or_sc, text)
+
+        # 3. Match 1-component grayscale operations ('0 g', '0 G')
         text = re.sub(r"(?<![0-9.])([0-9.]+)\s+([gG])(?![a-zA-Z0-9])", replace_grayscale, text)
 
-        # 2. Match all RGB operations (e.g. '0 0 0 rg', '0.137 0.122 0.125 rg', '.058824 .090196 .164706 rg')
-        text = re.sub(r"(?<![0-9.])([0-9.]+)\s+([0-9.]+)\s+([0-9.]+)\s+([rR][gG])(?![a-zA-Z0-9])", replace_rgb, text)
+        # 4. Match 1-component sc/scn operations ('0 sc', '0 SC')
+        text = re.sub(r"(?<![0-9.])([0-9.]+)\s+([sS][cC][nN]?)(?![a-zA-Z0-9])", replace_single_sc, text)
 
-        # 3. Prepend global default dark navy color state
+        # 5. Prepend global default dark navy color state
         prefix = f"{NAVY_R} {NAVY_G} {NAVY_B} rg\n{NAVY_R} {NAVY_G} {NAVY_B} RG\n"
         return (prefix + text).encode("latin1")
     except Exception as e:
