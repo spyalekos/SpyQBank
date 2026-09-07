@@ -98,6 +98,29 @@ class SettingsDialog:
             vertical_alignment=ft.CrossAxisAlignment.CENTER,
         )
 
+        self.toc_switch = ft.Switch(
+            value=self.cfg.get("include_table_of_contents", True),
+        )
+
+        self.toc_control = ft.Row(
+            controls=[
+                self.toc_switch,
+                ft.Container(
+                    content=ft.Column(
+                        controls=[
+                            ft.Text("Πίνακας Περιεχομένων στο τέλος (Table of Contents)", size=13, weight=ft.FontWeight.W_500, color=TEXT_MAIN),
+                            ft.Text("Προσθήκη αναλυτικού πίνακα περιεχομένων στο τέλος του PDF με σελίδες θεμάτων & απαντήσεων.", size=11, color=TEXT_MUTED),
+                        ],
+                        spacing=1,
+                    ),
+                    expand=True,
+                    on_click=lambda e: self._toggle_toc(),
+                ),
+            ],
+            spacing=10,
+            vertical_alignment=ft.CrossAxisAlignment.CENTER,
+        )
+
         self.dialog = ft.AlertDialog(
             modal=True,
             title=ft.Row(
@@ -125,6 +148,8 @@ class SettingsDialog:
                         self.chapter_dividers_control,
                         ft.Divider(height=5, color=ft.Colors.TRANSPARENT),
                         self.group_chapter_control,
+                        ft.Divider(height=5, color=ft.Colors.TRANSPARENT),
+                        self.toc_control,
                         ft.Text(
                             "Οι ρυθμίσεις αποθηκεύονται αυτόματα στο αρχείο spyqbank.json στον φάκελο της εφαρμογής.",
                             size=11,
@@ -169,6 +194,7 @@ class SettingsDialog:
         self.trim_switch.value = self.cfg.get("trim_whitespace", True)
         self.chapter_dividers_switch.value = self.cfg.get("include_chapter_covers", True)
         self.group_chapter_switch.value = self.cfg.get("group_by_main_chapter", True)
+        self.toc_switch.value = self.cfg.get("include_table_of_contents", True)
         if self.dialog not in self.page.overlay:
             self.page.overlay.append(self.dialog)
         self.dialog.open = True
@@ -186,6 +212,10 @@ class SettingsDialog:
         self.group_chapter_switch.value = not self.group_chapter_switch.value
         self.page.update()
 
+    def _toggle_toc(self):
+        self.toc_switch.value = not self.toc_switch.value
+        self.page.update()
+
     def _on_cancel(self, e):
         self.dialog.open = False
         self.page.update()
@@ -197,6 +227,7 @@ class SettingsDialog:
             "trim_whitespace": bool(self.trim_switch.value),
             "include_chapter_covers": bool(self.chapter_dividers_switch.value),
             "group_by_main_chapter": bool(self.group_chapter_switch.value),
+            "include_table_of_contents": bool(self.toc_switch.value),
         }
         save_config(new_cfg)
         self.dialog.open = False

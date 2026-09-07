@@ -6,13 +6,13 @@ import re
 import html
 import random
 import logging
-from typing import List, Optional, Callable, Dict
+from typing import List, Optional, Callable, Dict, Any
 from pypdf import PdfWriter, PdfReader, Transformation
 from pypdf.generic import DecodedStreamObject, NameObject
 
 from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
@@ -583,6 +583,138 @@ class PdfReportBuilder:
         packet.seek(0)
         return packet
 
+    def _create_table_of_contents(self, toc_data: List[Dict[str, Any]], subject_name: str) -> io.BytesIO:
+        """Create a Table of Contents document using ReportLab with Greek font support."""
+        packet = io.BytesIO()
+        doc = SimpleDocTemplate(
+            packet,
+            pagesize=A4,
+            leftMargin=35,
+            rightMargin=35,
+            topMargin=45,
+            bottomMargin=40
+        )
+
+        styles = getSampleStyleSheet()
+        font_b = FONT_BOLD if FONT_BOLD in pdfmetrics.getRegisteredFontNames() else "Helvetica-Bold"
+        font_r = FONT_REGULAR if FONT_REGULAR in pdfmetrics.getRegisteredFontNames() else "Helvetica"
+
+        toc_title_style = ParagraphStyle(
+            "TOCTitle",
+            parent=styles["Normal"],
+            fontName=font_b,
+            fontSize=16,
+            leading=21,
+            textColor=colors.HexColor("#0F172A"),
+            spaceAfter=3,
+        )
+        toc_sub_style = ParagraphStyle(
+            "TOCSub",
+            parent=styles["Normal"],
+            fontName=font_r,
+            fontSize=10,
+            leading=14,
+            textColor=colors.HexColor("#64748B"),
+            spaceAfter=8,
+        )
+        ch_header_style = ParagraphStyle(
+            "TOCChapterHeader",
+            parent=styles["Normal"],
+            fontName=font_b,
+            fontSize=11,
+            leading=15,
+            textColor=colors.HexColor("#1E3A8A"),
+            spaceBefore=8,
+            spaceAfter=3,
+            keepWithNext=True,
+        )
+        item_assign_style = ParagraphStyle(
+            "TOCItemAssign",
+            parent=styles["Normal"],
+            fontName=font_r,
+            fontSize=8.5,
+            leading=12,
+            textColor=colors.HexColor("#1E293B"),
+        )
+        item_sol_style = ParagraphStyle(
+            "TOCItemSol",
+            parent=styles["Normal"],
+            fontName=font_r,
+            fontSize=8.5,
+            leading=12,
+            textColor=colors.HexColor("#0D338C"),
+        )
+        page_num_style = ParagraphStyle(
+            "TOCPageNum",
+            parent=styles["Normal"],
+            fontName=font_r,
+            fontSize=8.5,
+            leading=12,
+            alignment=2,  # Right
+            textColor=colors.HexColor("#475569"),
+        )
+        page_num_sol_style = ParagraphStyle(
+            "TOCPageNumSol",
+            parent=styles["Normal"],
+            fontName=font_r,
+            fontSize=8.5,
+            leading=12,
+            alignment=2,  # Right
+            textColor=colors.HexColor("#0D338C"),
+        )
+
+        story = [
+            Paragraph("📋 Πίνακας Περιεχομένων", toc_title_style),
+            Paragraph(f"Μάθημα: {html.escape(subject_name)}", toc_sub_style),
+            HRFlowable(width="100%", thickness=1, color=colors.HexColor("#CBD5E1"), spaceAfter=8, spaceBefore=0),
+        ]
+
+        for ch_entry in toc_data:
+            ch_title = ch_entry.get("chapter", "Γενικά")
+            items = ch_entry.get("items", [])
+            if not items:
+                continue
+
+            story.append(Paragraph(f"📁 {html.escape(ch_title)}", ch_header_style))
+
+            table_data = []
+            for it in items:
+                q_label = it.get("question_label", "Θέμα")
+                q_id = it.get("id", 0)
+                assign_p = it.get("assign_page")
+                sol_p = it.get("sol_page")
+
+                p_assign = f"σελ. {assign_p}" if assign_p else "-"
+                table_data.append([
+                    Paragraph(f"&nbsp;&nbsp;&nbsp;&nbsp;📄 {html.escape(q_label)} #{q_id}", item_assign_style),
+                    Paragraph(p_assign, page_num_style)
+                ])
+
+                if sol_p:
+                    p_sol = f"σελ. {sol_p}"
+                    table_data.append([
+                        Paragraph(f"&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;💡 Ενδεικτική Απάντηση #{q_id}", item_sol_style),
+                        Paragraph(p_sol, page_num_sol_style)
+                    ])
+
+            if table_data:
+                col_widths = [445, 80]
+                t = Table(table_data, colWidths=col_widths, repeatRows=0)
+                t.setStyle(TableStyle([
+                    ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                    ("TOPPADDING", (0, 0), (-1, -1), 1.2),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 1.2),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 0),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+                    ("LINEBELOW", (0, 0), (-1, -1), 0.3, colors.HexColor("#F1F5F9")),
+                ]))
+                story.append(t)
+                story.append(Spacer(1, 4))
+
+        doc.build(story)
+        packet.seek(0)
+        return packet
+
     def build_combined_report(
         self,
         items: List[QuestionItem],
@@ -611,6 +743,7 @@ class PdfReportBuilder:
         should_trim = cfg.get("trim_whitespace", True)
         include_chapter_covers = cfg.get("include_chapter_covers", True)
         group_by_main = cfg.get("group_by_main_chapter", True)
+        include_toc = cfg.get("include_table_of_contents", True)
 
         def _chapter_sort_key(ch_str: str):
             """Natural alphanumeric sort key for chapter names (e.g. Chapter 2 before Chapter 10)."""
@@ -654,6 +787,7 @@ class PdfReportBuilder:
 
         current_page_number = 0
         processed = 0
+        toc_entries: List[Dict[str, Any]] = []
 
         if should_trim:
             # ==========================================
@@ -661,6 +795,7 @@ class PdfReportBuilder:
             # ==========================================
             for ch_title in sorted_chapter_titles:
                 ch_items = chapters_map[ch_title]
+                ch_toc_items: List[Dict[str, Any]] = []
                 if include_chapter_covers and len(chapters_map) > 1 and not chapter_name:
                     current_page_number += 1
                     ch_divider_stream = self._create_chapter_divider(ch_title, len(ch_items))
@@ -725,7 +860,10 @@ class PdfReportBuilder:
                     if os.path.exists(sol_path) and os.path.getsize(sol_path) > 0:
                         slices.append((sol_path, True, "Απάντηση", "💡"))
 
+                    it_assign_p = None
+                    it_sol_p = None
                     q_outline = None
+
                     for path, is_sol, kind_str, icon in slices:
                         try:
                             reader = PdfReader(path)
@@ -770,6 +908,7 @@ class PdfReportBuilder:
 
                                     page_idx = len(writer.pages) - 1
                                     if not is_sol:
+                                        it_assign_p = current_page_number
                                         parent_node = ch_outline
                                         q_outline = writer.add_outline_item(
                                             title=f"{icon} {q_label} ({kind_str})",
@@ -777,6 +916,7 @@ class PdfReportBuilder:
                                             parent=parent_node
                                         )
                                     else:
+                                        it_sol_p = current_page_number
                                         parent_item = q_outline or ch_outline
                                         if parent_item:
                                             writer.add_outline_item(
@@ -796,6 +936,13 @@ class PdfReportBuilder:
                         except Exception as e:
                             logger.error(f"Failed to pack {kind_str} #{it.id}: {e}")
 
+                    ch_toc_items.append({
+                        "question_label": it.question_label,
+                        "id": it.id,
+                        "assign_page": it_assign_p,
+                        "sol_page": it_sol_p
+                    })
+
                 # Finalize last packed page of the chapter
                 if page_has_content:
                     overlay = self._create_header_footer_overlay(
@@ -808,12 +955,18 @@ class PdfReportBuilder:
                     )
                     current_packed_page.merge_page(overlay)
 
+                toc_entries.append({
+                    "chapter": ch_title,
+                    "items": ch_toc_items
+                })
+
         else:
             # ==========================================
             # CLASSIC 1-PAGE-PER-SLICE MODE (Trimming OFF)
             # ==========================================
             for ch_title in sorted_chapter_titles:
                 ch_items = chapters_map[ch_title]
+                ch_toc_items: List[Dict[str, Any]] = []
                 if include_chapter_covers and len(chapters_map) > 1 and not chapter_name:
                     current_page_number += 1
                     ch_divider_stream = self._create_chapter_divider(ch_title, len(ch_items))
@@ -860,6 +1013,9 @@ class PdfReportBuilder:
                     except Exception as e:
                         logger.warning(f"Could not download solution PDF for #{it.id}: {e}")
 
+                    it_assign_p = None
+                    it_sol_p = None
+
                     # Add Assignment PDF pages (Black text) with Header & Footer overlay
                     q_outline = None
                     if os.path.exists(assign_path) and os.path.getsize(assign_path) > 0:
@@ -890,6 +1046,7 @@ class PdfReportBuilder:
                                 added_page.merge_page(overlay)
 
                                 if first_page:
+                                    it_assign_p = current_page_number
                                     first_page = False
                                     page_idx = len(writer.pages) - 1
                                     parent_node = ch_outline
@@ -931,6 +1088,7 @@ class PdfReportBuilder:
                                 added_page.merge_page(overlay)
 
                                 if first_page:
+                                    it_sol_p = current_page_number
                                     first_page = False
                                     page_idx = len(writer.pages) - 1
                                     parent_item = q_outline or ch_outline
@@ -947,6 +1105,48 @@ class PdfReportBuilder:
                                         )
                         except Exception as e:
                             logger.error(f"Failed to append solution PDF #{it.id}: {e}")
+
+                    ch_toc_items.append({
+                        "question_label": it.question_label,
+                        "id": it.id,
+                        "assign_page": it_assign_p,
+                        "sol_page": it_sol_p
+                    })
+
+                toc_entries.append({
+                    "chapter": ch_title,
+                    "items": ch_toc_items
+                })
+
+        # 3. Add Table of Contents Pages at the end (if enabled)
+        if include_toc and toc_entries:
+            if progress_callback:
+                progress_callback("Δημιουργία Πίνακα Περιεχομένων...", 0.95)
+            try:
+                toc_stream = self._create_table_of_contents(toc_entries, subject_name)
+                toc_reader = PdfReader(toc_stream)
+
+                writer.add_outline_item(
+                    title="📋 Πίνακας Περιεχομένων",
+                    page_number=len(writer.pages)
+                )
+
+                for toc_page in toc_reader.pages:
+                    current_page_number += 1
+                    added_toc_page = writer.add_page(toc_page)
+                    w = float(toc_page.mediabox.width)
+                    h = float(toc_page.mediabox.height)
+                    overlay = self._create_header_footer_overlay(
+                        width=w,
+                        height=h,
+                        header_right_text="Πίνακας Περιεχομένων",
+                        page_num=current_page_number,
+                        header_center_text=hdr_center,
+                        footer_center_text=ftr_center
+                    )
+                    added_toc_page.merge_page(overlay)
+            except Exception as e:
+                logger.error(f"Failed to generate Table of Contents: {e}")
 
         if progress_callback:
             progress_callback("Αποθήκευση τελικού αρχείου PDF...", 0.98)

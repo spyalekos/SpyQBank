@@ -22,6 +22,7 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "trim_whitespace": True,
     "include_chapter_covers": True,
     "group_by_main_chapter": True,
+    "include_table_of_contents": True,
 }
 
 def load_config() -> Dict[str, Any]:
