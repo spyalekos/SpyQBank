@@ -929,7 +929,7 @@ class PdfReportBuilder:
                                 min_y, max_y, slice_h = _get_page_content_bounds(page)
 
                                 # If slice doesn't fit on current page, finish current page and start a new blank page
-                                if page_has_content and (current_y - slice_h < 35.0):
+                                if page_has_content and (current_y - slice_h < 38.0):
                                     overlay = self._create_header_footer_overlay(
                                         width=A4[0],
                                         height=A4[1],
@@ -986,7 +986,9 @@ class PdfReportBuilder:
                                             )
                                     first_slice_page = False
 
-                                current_y = current_y - slice_h - 12.0
+                                # Spacing: 22pt between Question and Solution, 28pt between different question items
+                                gap = 22.0 if not is_sol else 28.0
+                                current_y = current_y - slice_h - gap
                                 page_has_content = True
                         except Exception as e:
                             logger.error(f"Failed to pack {kind_str} #{it.id}: {e}")
