@@ -202,16 +202,30 @@ def _apply_solution_color(page):
 
 
 
+def _is_empty_or_whitespace_pdf_text(stack_items) -> bool:
+    """Check if the text arguments in stack are only whitespace, empty brackets, or CID font space codes (<0003>)."""
+    if not stack_items:
+        return True
+    combined = "".join(str(x) for x in stack_items)
+    # Remove CID space <0003>, brackets, parens, whitespaces, numbers (kerning shifts inside TJ)
+    cleaned = re.sub(r"[\[\]\(\)\s\-\+\.0-9]", "", combined)
+    cleaned = re.sub(r"<(?:\s*0003\s*)+>", "", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"<[0\s]*>", "", cleaned)
+    return len(cleaned) == 0
+
+
 def _get_page_content_bounds(page):
     """
-    Robustly calculate vertical bounding box (min_y, max_y, height) of content on a PDF page
-    by parsing CTM transformations and text/graphic drawing instructions.
+    Robustly calculate vertical bounding box (min_y, max_y, height) of visible content on a PDF page
+    by parsing CTM transformations, text operators, vector drawings, and XObjects while ignoring
+    phantom spaces, empty header/footer lines, and full-page background rectangles.
     """
     try:
         raw = page.get("/Contents")
+        page_h = float(page.mediabox.height)
+        page_w = float(page.mediabox.width)
         if raw is None:
-            h = float(page.mediabox.height)
-            return 50.0, h - 50.0, h - 100.0
+            return 50.0, page_h - 50.0, page_h - 100.0
         c_obj = raw.get_object()
         streams = c_obj if isinstance(c_obj, list) else [c_obj]
         data = b"".join([s.get_object().get_data() for s in streams]).decode("latin1", errors="ignore")
@@ -235,12 +249,11 @@ def _get_page_content_bounds(page):
         )
         tokens = token_pattern.findall(data)
 
-        stack = []
         ctm_stack = [[1.0, 0.0, 0.0, 1.0, 0.0, 0.0]]
         text_matrix = [1.0, 0.0, 0.0, 1.0, 0.0, 0.0]
         line_matrix = [1.0, 0.0, 0.0, 1.0, 0.0, 0.0]
         leading = 14.0
-
+        stack = []
         y_coords = []
 
         for tok in tokens:
@@ -276,18 +289,12 @@ def _get_page_content_bounds(page):
                 new_f = lm[5] - leading
                 line_matrix = [lm[0], lm[1], lm[2], lm[3], new_e, new_f]
                 text_matrix = list(line_matrix)
-                curr_ctm = ctm_stack[-1]
-                eff_matrix = mat_mult(curr_ctm, text_matrix)
-                y_coords.append(eff_matrix[5])
                 stack.clear()
             elif tok == "Tm":
                 if len(stack) >= 6:
                     try:
                         text_matrix = [float(stack[-6]), float(stack[-5]), float(stack[-4]), float(stack[-3]), float(stack[-2]), float(stack[-1])]
                         line_matrix = list(text_matrix)
-                        curr_ctm = ctm_stack[-1]
-                        eff_matrix = mat_mult(curr_ctm, text_matrix)
-                        y_coords.append(eff_matrix[5])
                     except Exception:
                         pass
                 stack.clear()
@@ -300,22 +307,31 @@ def _get_page_content_bounds(page):
                         new_f = tx * lm[1] + ty * lm[3] + lm[5]
                         line_matrix = [lm[0], lm[1], lm[2], lm[3], new_e, new_f]
                         text_matrix = list(line_matrix)
-                        curr_ctm = ctm_stack[-1]
-                        eff_matrix = mat_mult(curr_ctm, text_matrix)
-                        y_coords.append(eff_matrix[5])
                     except Exception:
                         pass
+                stack.clear()
+            elif tok in ("Tj", "TJ", "'", '"'):
+                if not _is_empty_or_whitespace_pdf_text(stack):
+                    curr_ctm = ctm_stack[-1]
+                    eff_matrix = mat_mult(curr_ctm, text_matrix)
+                    y_pos = eff_matrix[5]
+                    # Discard phantom header/footer lines outside safe body zone
+                    if 25.0 <= y_pos <= page_h - 25.0:
+                        y_coords.append(y_pos)
                 stack.clear()
             elif tok == "re":
                 if len(stack) >= 4:
                     try:
                         rx, ry, rw, rh = float(stack[-4]), float(stack[-3]), float(stack[-2]), float(stack[-1])
-                        # Ignore full page backgrounds or large container frames
-                        if not (abs(rw) > 400 and abs(rh) > 300) and abs(rw) < 520 and abs(rh) < 700:
+                        # Ignore full page background rectangles, zero-size rects, or page-spanning framing boxes
+                        if not (abs(rw) >= page_w - 50 and abs(rh) >= page_h - 100) and abs(rw) > 1 and abs(rh) > 1:
                             curr_ctm = ctm_stack[-1]
                             _, y1 = transform_pt(curr_ctm, rx, ry)
                             _, y2 = transform_pt(curr_ctm, rx + rw, ry + rh)
-                            y_coords.extend([min(y1, y2), max(y1, y2)])
+                            min_box = min(y1, y2)
+                            max_box = max(y1, y2)
+                            if min_box >= 25.0 and max_box <= page_h - 25.0:
+                                y_coords.extend([min_box, max_box])
                     except Exception:
                         pass
                 stack.clear()
@@ -325,7 +341,8 @@ def _get_page_content_bounds(page):
                         px, py = float(stack[-2]), float(stack[-1])
                         curr_ctm = ctm_stack[-1]
                         _, ty = transform_pt(curr_ctm, px, py)
-                        y_coords.append(ty)
+                        if 25.0 <= ty <= page_h - 25.0:
+                            y_coords.append(ty)
                     except Exception:
                         pass
                 stack.clear()
@@ -333,24 +350,21 @@ def _get_page_content_bounds(page):
                 curr_ctm = ctm_stack[-1]
                 _, y1 = transform_pt(curr_ctm, 0, 0)
                 _, y2 = transform_pt(curr_ctm, 1, 1)
-                if abs(y2 - y1) < 700:
-                    y_coords.extend([min(y1, y2), max(y1, y2)])
+                min_do = min(y1, y2)
+                max_do = max(y1, y2)
+                if abs(max_do - min_do) < page_h - 50 and min_do >= 20.0 and max_do <= page_h - 20.0:
+                    y_coords.extend([min_do, max_do])
                 stack.clear()
-            elif tok in ("ET", "c", "v", "y", "h", "B", "B*", "b", "b*", "f", "f*", "s", "S", "n", "W", "W*", "rg", "RG", "g", "G", "k", "K", "cs", "CS", "sc", "SC", "scn", "SCN", "Tf", "Tr", "Ts", "Tw", "Tz", "Tj", "TJ", "d", "gs"):
+            elif tok in ("ET", "c", "v", "y", "h", "B", "B*", "b", "b*", "f", "f*", "s", "S", "n", "W", "W*", "rg", "RG", "g", "G", "k", "K", "cs", "CS", "sc", "SC", "scn", "SCN", "Tf", "Tr", "Ts", "Tw", "Tz", "d", "gs"):
                 stack.clear()
             else:
                 stack.append(tok)
 
-        page_h = float(page.mediabox.height)
         if not y_coords:
             return 50.0, page_h - 50.0, page_h - 100.0
 
-        valid_y = [y for y in y_coords if 10.0 <= y <= page_h - 10.0]
-        if not valid_y:
-            return 50.0, page_h - 50.0, page_h - 100.0
-
-        min_y = max(25.0, min(valid_y) - 10.0)
-        max_y = min(page_h - 25.0, max(valid_y) + 12.0)
+        min_y = max(20.0, min(y_coords) - 10.0)
+        max_y = min(page_h - 20.0, max(y_coords) + 12.0)
         return min_y, max_y, (max_y - min_y)
     except Exception as e:
         logger.warning(f"Error calculating content bounds: {e}")
@@ -899,7 +913,12 @@ class PdfReportBuilder:
                                     current_y = 790.0
                                     page_has_content = False
 
-                                # Position slice onto current packed page
+                                # Position slice onto current packed page with tight cropbox clipping
+                                w_slice = float(page.mediabox.width)
+                                h_slice = float(page.mediabox.height)
+                                page.cropbox.lower_left = (0, max(0.0, min_y - 2.0))
+                                page.cropbox.upper_right = (w_slice, min(h_slice, max_y + 2.0))
+
                                 dy = current_y - max_y
                                 page.add_transformation(Transformation().translate(tx=0, ty=dy))
                                 current_packed_page.merge_page(page)
@@ -929,18 +948,18 @@ class PdfReportBuilder:
                                         parent_item = q_outline or ch_outline
                                         if parent_item:
                                             writer.add_outline_item(
-                                                title=f"{icon} {q_label} ({kind_str})",
-                                                page_number=page_idx,
-                                                parent=parent_item
+                                              title=f"{icon} {q_label} ({kind_str})",
+                                              page_number=page_idx,
+                                              parent=parent_item
                                             )
                                         else:
                                             writer.add_outline_item(
-                                                title=f"{icon} {q_label} ({kind_str})",
-                                                page_number=page_idx
+                                              title=f"{icon} {q_label} ({kind_str})",
+                                              page_number=page_idx
                                             )
                                     first_slice_page = False
 
-                                current_y = current_y - slice_h - 16.0
+                                current_y = current_y - slice_h - 12.0
                                 page_has_content = True
                         except Exception as e:
                             logger.error(f"Failed to pack {kind_str} #{it.id}: {e}")
