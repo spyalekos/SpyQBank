@@ -12,7 +12,7 @@ from pypdf.generic import DecodedStreamObject, NameObject
 
 from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable, Flowable
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
@@ -378,6 +378,59 @@ def _trim_whitespace_margins(page):
         logger.warning(f"Error cropping page margins: {e}")
 
 
+class TocLineItem(Flowable):
+    """A ReportLab flowable drawing a TOC row with title, fine dotted leader line, and page number."""
+
+    def __init__(self, left_text: str, right_text: str, is_solution: bool = False, width: float = 525):
+        super().__init__()
+        self.left_text = left_text
+        self.right_text = right_text
+        self.is_solution = is_solution
+        self.width = width
+        self.height = 13.5
+
+    def wrap(self, availWidth, availHeight):
+        self.width = availWidth
+        return self.width, self.height
+
+    def draw(self):
+        canv = self.canv
+        font_name = FONT_REGULAR if FONT_REGULAR in pdfmetrics.getRegisteredFontNames() else "Helvetica"
+        font_size = 8.5
+        canv.setFont(font_name, font_size)
+
+        if self.is_solution:
+            text_color = colors.HexColor("#0D338C")
+            dot_color = colors.HexColor("#93C5FD")
+            x_left = 18
+        else:
+            text_color = colors.HexColor("#1E293B")
+            dot_color = colors.HexColor("#CBD5E1")
+            x_left = 6
+
+        # Draw left text
+        canv.setFillColor(text_color)
+        canv.drawString(x_left, 3, self.left_text)
+        left_w = canv.stringWidth(self.left_text, font_name, font_size)
+
+        # Draw right text (Page Number)
+        canv.setFillColor(text_color)
+        right_w = canv.stringWidth(self.right_text, font_name, font_size)
+        x_right = self.width - right_w
+        canv.drawString(x_right, 3, self.right_text)
+
+        # Draw very fine dotted leader line between title and page number
+        dot_start = x_left + left_w + 5
+        dot_end = x_right - 5
+        if dot_end > dot_start:
+            canv.saveState()
+            canv.setStrokeColor(dot_color)
+            canv.setLineWidth(0.5)
+            canv.setDash(1, 2.5)  # Fine 1pt dot with 2.5pt spacing
+            canv.line(dot_start, 5, dot_end, 5)
+            canv.restoreState()
+
+
 class PdfReportBuilder:
     """Builds comprehensive PDF reports pairing questions with their respective solutions."""
 
@@ -625,46 +678,12 @@ class PdfReportBuilder:
             leading=15,
             textColor=colors.HexColor("#1E3A8A"),
             spaceBefore=8,
-            spaceAfter=3,
+            spaceAfter=4,
             keepWithNext=True,
-        )
-        item_assign_style = ParagraphStyle(
-            "TOCItemAssign",
-            parent=styles["Normal"],
-            fontName=font_r,
-            fontSize=8.5,
-            leading=12,
-            textColor=colors.HexColor("#1E293B"),
-        )
-        item_sol_style = ParagraphStyle(
-            "TOCItemSol",
-            parent=styles["Normal"],
-            fontName=font_r,
-            fontSize=8.5,
-            leading=12,
-            textColor=colors.HexColor("#0D338C"),
-        )
-        page_num_style = ParagraphStyle(
-            "TOCPageNum",
-            parent=styles["Normal"],
-            fontName=font_r,
-            fontSize=8.5,
-            leading=12,
-            alignment=2,  # Right
-            textColor=colors.HexColor("#475569"),
-        )
-        page_num_sol_style = ParagraphStyle(
-            "TOCPageNumSol",
-            parent=styles["Normal"],
-            fontName=font_r,
-            fontSize=8.5,
-            leading=12,
-            alignment=2,  # Right
-            textColor=colors.HexColor("#0D338C"),
         )
 
         story = [
-            Paragraph("📋 Πίνακας Περιεχομένων", toc_title_style),
+            Paragraph("Πίνακας Περιεχομένων", toc_title_style),
             Paragraph(f"Μάθημα: {html.escape(subject_name)}", toc_sub_style),
             HRFlowable(width="100%", thickness=1, color=colors.HexColor("#CBD5E1"), spaceAfter=8, spaceBefore=0),
         ]
@@ -675,9 +694,8 @@ class PdfReportBuilder:
             if not items:
                 continue
 
-            story.append(Paragraph(f"📁 {html.escape(ch_title)}", ch_header_style))
+            story.append(Paragraph(html.escape(ch_title), ch_header_style))
 
-            table_data = []
             for it in items:
                 q_label = it.get("question_label", "Θέμα")
                 q_id = it.get("id", 0)
@@ -685,31 +703,22 @@ class PdfReportBuilder:
                 sol_p = it.get("sol_page")
 
                 p_assign = f"σελ. {assign_p}" if assign_p else "-"
-                table_data.append([
-                    Paragraph(f"&nbsp;&nbsp;&nbsp;&nbsp;📄 {html.escape(q_label)} #{q_id}", item_assign_style),
-                    Paragraph(p_assign, page_num_style)
-                ])
+                story.append(TocLineItem(
+                    left_text=f"• {q_label} #{q_id}",
+                    right_text=p_assign,
+                    is_solution=False
+                ))
 
                 if sol_p:
                     p_sol = f"σελ. {sol_p}"
-                    table_data.append([
-                        Paragraph(f"&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;💡 Ενδεικτική Απάντηση #{q_id}", item_sol_style),
-                        Paragraph(p_sol, page_num_sol_style)
-                    ])
+                    story.append(TocLineItem(
+                        left_text=f"– Ενδεικτική Απάντηση #{q_id}",
+                        right_text=p_sol,
+                        is_solution=True
+                    ))
+                story.append(Spacer(1, 1.5))
 
-            if table_data:
-                col_widths = [445, 80]
-                t = Table(table_data, colWidths=col_widths, repeatRows=0)
-                t.setStyle(TableStyle([
-                    ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-                    ("TOPPADDING", (0, 0), (-1, -1), 1.2),
-                    ("BOTTOMPADDING", (0, 0), (-1, -1), 1.2),
-                    ("LEFTPADDING", (0, 0), (-1, -1), 0),
-                    ("RIGHTPADDING", (0, 0), (-1, -1), 0),
-                    ("LINEBELOW", (0, 0), (-1, -1), 0.3, colors.HexColor("#F1F5F9")),
-                ]))
-                story.append(t)
-                story.append(Spacer(1, 4))
+            story.append(Spacer(1, 4))
 
         doc.build(story)
         packet.seek(0)
@@ -1127,7 +1136,7 @@ class PdfReportBuilder:
                 toc_reader = PdfReader(toc_stream)
 
                 writer.add_outline_item(
-                    title="📋 Πίνακας Περιεχομένων",
+                    title="Πίνακας Περιεχομένων",
                     page_number=len(writer.pages)
                 )
 
