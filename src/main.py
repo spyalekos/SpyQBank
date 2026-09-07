@@ -151,7 +151,7 @@ def main(page: ft.Page):
             populate_chapters_dropdown()
             update_filtered_list()
 
-    settings_dialog = SettingsDialog(page, on_save_callback=on_settings_saved)
+    settings_dialog = SettingsDialog(page, on_save_callback=on_settings_saved, storage=storage)
 
     # Help Dialog
     help_dialog = ft.AlertDialog(
@@ -287,6 +287,111 @@ def main(page: ft.Page):
         ),
         tooltip="Εξαγωγή μόνο του επιλεγμένου κεφαλαίου σε PDF",
     )
+    cache_subject_pdfs_button = ft.Button(
+        content=ft.Row(
+            controls=[
+                ft.Icon(ft.Icons.DOWNLOAD_FOR_OFFLINE, size=15, color="#1E40AF"),
+                ft.Text("Λήψη PDF Μαθήματος", size=12, color="#1E40AF", weight=ft.FontWeight.W_600),
+            ],
+            spacing=4,
+            tight=True,
+        ),
+        style=ft.ButtonStyle(
+            bgcolor="#EFF6FF",
+            shape=ft.RoundedRectangleBorder(radius=6),
+            side=ft.BorderSide(1, "#BFDBFE"),
+            padding=ft.Padding(10, 6, 10, 6),
+        ),
+        tooltip="Λήψη όλων των PDF (Εκφωνήσεων & Απαντήσεων) του επιλεγμένου μαθήματος στην τοπική μνήμη για 100% offline χρήση"
+    )
+
+    def _close_prefetch_dialog():
+        prefetch_dialog.open = False
+        page.update()
+
+    prefetch_dialog = ft.AlertDialog(
+        modal=True,
+        title=ft.Row(
+            controls=[
+                ft.Icon(ft.Icons.CLOUD_DOWNLOAD, color=PRIMARY, size=28),
+                ft.Text("Προφόρτωση ΕΠΑΛ για Offline Χρήση", weight=ft.FontWeight.BOLD, size=18),
+            ],
+            spacing=10
+        ),
+        content=ft.Container(
+            content=ft.Column(
+                controls=[
+                    ft.Text(
+                        "Επιλέξτε τον επιθυμητό τρόπο προφόρτωσης των 125 μαθημάτων ΕΠΑΛ:",
+                        size=13,
+                        color=TEXT_MAIN
+                    ),
+                    ft.Divider(height=8, color=ft.Colors.TRANSPARENT),
+                    ft.Container(
+                        content=ft.Column(
+                            controls=[
+                                ft.Text("⚡ 1. Γρήγορη Προφόρτωση Μεταδεδομένων", weight=ft.FontWeight.BOLD, size=13, color=PRIMARY_DARK),
+                                ft.Text("Αποθηκεύει τοπικά τα θέματα, τίτλους και κεφάλαια όλων των μαθημάτων ΕΠΑΛ. Επιτρέπει άμεση αναζήτηση, φιλτράρισμα και περιήγηση χωρίς internet (~15 MB).", size=11, color=TEXT_MUTED),
+                            ],
+                            spacing=2,
+                        ),
+                        bgcolor="#F8FAFC",
+                        border=ft.Border.all(1, "#E2E8F0"),
+                        border_radius=6,
+                        padding=10,
+                    ),
+                    ft.Divider(height=6, color=ft.Colors.TRANSPARENT),
+                    ft.Container(
+                        content=ft.Column(
+                            controls=[
+                                ft.Text("💾 2. Πλήρης Προφόρτωση με Όλα τα PDF (100% Offline)", weight=ft.FontWeight.BOLD, size=13, color="#059669"),
+                                ft.Text("Κατεβάζει τόσο τα μεταδεδομένα όσο και ΟΛΑ τα αρχεία PDF εκφωνήσεων & απαντήσεων στην τοπική cache. Επιτρέπει πλήρη προβολή και εξαγωγή συνδυαστικών PDF χωρίς ίχνος internet.", size=11, color=TEXT_MUTED),
+                            ],
+                            spacing=2,
+                        ),
+                        bgcolor="#F0FDF4",
+                        border=ft.Border.all(1, "#BBF7D0"),
+                        border_radius=6,
+                        padding=10,
+                    ),
+                ],
+                tight=True,
+                spacing=4
+            ),
+            width=540,
+            padding=10
+        ),
+        actions=[
+            ft.Button(
+                content=ft.Text("Ακύρωση", color=TEXT_MUTED),
+                style=ft.ButtonStyle(
+                    bgcolor=ft.Colors.TRANSPARENT,
+                    shape=ft.RoundedRectangleBorder(radius=6),
+                    padding=ft.Padding(14, 10, 14, 10)
+                ),
+                on_click=lambda e: _close_prefetch_dialog()
+            ),
+            ft.Button(
+                content=ft.Text("Μόνο Μεταδεδομένα", color=PRIMARY_DARK, weight=ft.FontWeight.BOLD),
+                style=ft.ButtonStyle(
+                    bgcolor="#EFF6FF",
+                    shape=ft.RoundedRectangleBorder(radius=6),
+                    padding=ft.Padding(14, 10, 14, 10)
+                ),
+                on_click=lambda e: _start_prefetch_epal(include_pdfs=False)
+            ),
+            ft.Button(
+                content=ft.Text("Πλήρης Λήψη (+PDFs)", color=ft.Colors.WHITE, weight=ft.FontWeight.BOLD),
+                style=ft.ButtonStyle(
+                    bgcolor="#059669",
+                    shape=ft.RoundedRectangleBorder(radius=6),
+                    padding=ft.Padding(16, 10, 16, 10)
+                ),
+                on_click=lambda e: _start_prefetch_epal(include_pdfs=True)
+            ),
+        ],
+        actions_alignment=ft.MainAxisAlignment.END,
+    )
 
     is_busy = False
 
@@ -314,6 +419,9 @@ def main(page: ft.Page):
 
         export_chapter_button.disabled = busy
         export_chapter_button.opacity = 0.5 if busy else 1.0
+
+        cache_subject_pdfs_button.disabled = busy
+        cache_subject_pdfs_button.opacity = 0.5 if busy else 1.0
 
         type_dropdown.disabled = busy
         class_dropdown.disabled = busy or (selected_school_type is None)
@@ -507,11 +615,24 @@ def main(page: ft.Page):
                     card.set_enabled(False)
                 items_column.controls.append(card)
 
-        # Update summary banner
+        # Update summary banner with offline cache indicator
         total_sub = len(all_items)
         visible_cnt = len(filtered_items)
         sub_name = selected_subject.name if selected_subject else ""
-        summary_label.value = f"📚 {sub_name}: Εμφανίζονται {visible_cnt} από {total_sub} θέματα (με εκφωνήσεις & απαντήσεις)"
+        pdf_stat = storage.get_subject_pdf_status(all_items) if all_items else {}
+        total_pdfs = total_sub * 2
+        cached_pdfs = (pdf_stat.get("cached_assignments", 0) + pdf_stat.get("cached_solutions", 0)) if pdf_stat else 0
+
+        cache_indicator = ""
+        if total_sub > 0:
+            if cached_pdfs == total_pdfs and total_pdfs > 0:
+                cache_indicator = f"  •  💾 100% Offline Ready ({cached_pdfs}/{total_pdfs} PDF)"
+            elif cached_pdfs > 0:
+                cache_indicator = f"  •  💾 {cached_pdfs}/{total_pdfs} PDF στην Cache"
+            else:
+                cache_indicator = "  •  🌐 Online (Χωρίς τοπικά PDF)"
+
+        summary_label.value = f"📚 {sub_name}: Εμφανίζονται {visible_cnt} από {total_sub} θέματα{cache_indicator}"
         page.update()
 
     def on_chapter_changed(e):
@@ -667,16 +788,22 @@ def main(page: ft.Page):
     def handle_prefetch_epal(e):
         if is_busy:
             return
+        if prefetch_dialog not in page.overlay:
+            page.overlay.append(prefetch_dialog)
+        prefetch_dialog.open = True
+        page.update()
 
-        # ⚡ Immediately lock UI synchronously
+    def _start_prefetch_epal(include_pdfs: bool):
+        prefetch_dialog.open = False
         set_ui_busy(True)
         progress_bar.visible = True
         progress_bar.value = 0.0
-        status_text.value = "Έναρξη προφόρτωσης (prefetch) μαθημάτων ΕΠΑΛ..."
+        mode_str = "Μεταδεδομένα + Όλα τα PDF" if include_pdfs else "Μεταδεδομένα"
+        status_text.value = f"Έναρξη προφόρτωσης ΕΠΑΛ ({mode_str})..."
         page.update()
 
         def worker():
-            log_console.log("=== ΕΝΑΡΞΗ PREFETCH ΟΛΩΝ ΤΩΝ ΜΑΘΗΜΑΤΩΝ ΕΠΑΛ ===")
+            log_console.log(f"=== ΕΝΑΡΞΗ PREFETCH ΕΠΑΛ ({mode_str.upper()}) ===")
             epal_type = next((st for st in school_types if st.id == 3 or "ΕΠΑΛ" in st.name.upper() or "ΕΠΑ.Λ" in st.name.upper()), None)
             if not epal_type:
                 log_console.log("Δεν βρέθηκε ο τύπος σχολείου ΕΠΑΛ στο δέντρο.", "ERROR")
@@ -698,6 +825,7 @@ def main(page: ft.Page):
             downloaded_cnt = 0
             cached_cnt = 0
             error_cnt = 0
+            pdf_downloaded_cnt = 0
 
             for idx, (cl, sub) in enumerate(all_epal_lessons, start=1):
                 progress_val = idx / total_subjects
@@ -705,36 +833,122 @@ def main(page: ft.Page):
                 status_text.value = f"[{idx}/{total_subjects}] {cl.name} - {sub.name}..."
                 page.update()
 
-                # Check if already cached
+                # Check if metadata already cached
                 cached = storage.load_subject_items(epal_type.id, cl.id, sub.id)
+                current_lesson_items = []
                 if cached:
                     cached_cnt += 1
+                    current_lesson_items = cached
                     log_console.log(f"[{idx}/{total_subjects}] (Cache) {cl.name} -> {sub.name} ({len(cached)} θέματα)")
-                    page.update()
-                    continue
+                else:
+                    # Fetch from IEP API with rate-limiting delay
+                    delay = random.uniform(1.0, 3.5)
+                    time.sleep(delay)
+                    try:
+                        fresh_items = api_client.get_subject_items(epal_type.id, cl.id, sub.id)
+                        storage.save_subject_items(epal_type.id, cl.id, sub.id, fresh_items)
+                        downloaded_cnt += 1
+                        current_lesson_items = fresh_items
+                        log_console.log(f"[{idx}/{total_subjects}] (API) {cl.name} -> {sub.name}: {len(fresh_items)} θέματα", "SUCCESS")
+                    except Exception as ex:
+                        error_cnt += 1
+                        log_console.log(f"[{idx}/{total_subjects}] Σφάλμα στο μάθημα {sub.name}: {ex}", "ERROR")
 
-                # Fetch from IEP API with rate-limiting delay
-                delay = random.uniform(1.0, 4.0)
-                time.sleep(delay)
+                # If include_pdfs is requested, ensure all PDFs are cached
+                if include_pdfs and current_lesson_items:
+                    for it in current_lesson_items:
+                        p_assign = storage.get_pdf_cache_path(it.id, 1)
+                        p_sol = storage.get_pdf_cache_path(it.id, 2)
 
-                try:
-                    fresh_items = api_client.get_subject_items(epal_type.id, cl.id, sub.id)
-                    storage.save_subject_items(epal_type.id, cl.id, sub.id, fresh_items)
-                    downloaded_cnt += 1
-                    log_console.log(f"[{idx}/{total_subjects}] (API - {delay:.1f}s delay) {cl.name} -> {sub.name}: {len(fresh_items)} θέματα", "SUCCESS")
-                except Exception as ex:
-                    error_cnt += 1
-                    log_console.log(f"[{idx}/{total_subjects}] Σφάλμα στο μάθημα {sub.name}: {ex}", "ERROR")
+                        if not os.path.exists(p_assign) or os.path.getsize(p_assign) == 0:
+                            try:
+                                api_client.download_file(it.get_assignment_pdf_url(), p_assign)
+                                pdf_downloaded_cnt += 1
+                                time.sleep(random.uniform(0.2, 0.6))
+                            except Exception as ex_p:
+                                logger.debug(f"Could not cache assignment #{it.id}: {ex_p}")
+
+                        if not os.path.exists(p_sol) or os.path.getsize(p_sol) == 0:
+                            try:
+                                api_client.download_file(it.get_solution_pdf_url(), p_sol)
+                                pdf_downloaded_cnt += 1
+                                time.sleep(random.uniform(0.2, 0.6))
+                            except Exception as ex_p:
+                                logger.debug(f"Could not cache solution #{it.id}: {ex_p}")
 
                 page.update()
 
+            pdf_extra = f", {pdf_downloaded_cnt} νέα PDF αποθηκεύτηκαν" if include_pdfs else ""
             log_console.log(f"=== ΟΛΟΚΛΗΡΩΣΗ PREFETCH ΕΠΑΛ ===", "SUCCESS")
-            log_console.log(f"Αποτελέσματα: {downloaded_cnt} λήφθηκαν από API, {cached_cnt} υπήρχαν στην cache, {error_cnt} σφάλματα.", "SUCCESS")
-            show_snackbar(f"Ολοκληρώθηκε το Prefetch ΕΠΑΛ ({downloaded_cnt} νέα, {cached_cnt} cache).")
+            log_console.log(f"Αποτελέσματα: {downloaded_cnt} μαθήματα λήφθηκαν, {cached_cnt} υπήρχαν στην cache{pdf_extra}, {error_cnt} σφάλματα.", "SUCCESS")
+            show_snackbar(f"Ολοκληρώθηκε το Prefetch ΕΠΑΛ ({downloaded_cnt} νέα μαθήματα{pdf_extra}).")
 
             progress_bar.visible = False
             progress_bar.value = None
             status_text.value = "Έτοιμο. Η προφόρτωση ΕΠΑΛ ολοκληρώθηκε."
+            set_ui_busy(False)
+            page.update()
+
+        page.run_thread(worker)
+
+    def handle_cache_subject_pdfs(e):
+        if is_busy:
+            return
+        if not selected_subject or not all_items:
+            show_snackbar("Παρακαλώ επιλέξτε πρώτα μάθημα με διαθέσιμα θέματα.", is_error=True)
+            return
+
+        set_ui_busy(True)
+        progress_bar.visible = True
+        progress_bar.value = 0.0
+        status_text.value = f"Λήψη αρχείων PDF για: {selected_subject.name}..."
+        page.update()
+
+        def worker():
+            log_console.log(f"Έναρξη λήψης PDF για το μάθημα: {selected_subject.name} ({len(all_items)} θέματα)...")
+            total = len(all_items)
+            downloaded = 0
+            already_cached = 0
+            errors = 0
+
+            for idx, it in enumerate(all_items, start=1):
+                progress_bar.value = idx / total
+                status_text.value = f"Λήψη PDF [{idx}/{total}]: Θέμα #{it.id}..."
+                page.update()
+
+                p_assign = storage.get_pdf_cache_path(it.id, 1)
+                p_sol = storage.get_pdf_cache_path(it.id, 2)
+
+                # Assignment PDF
+                if not os.path.exists(p_assign) or os.path.getsize(p_assign) == 0:
+                    try:
+                        api_client.download_file(it.get_assignment_pdf_url(), p_assign)
+                        downloaded += 1
+                        time.sleep(random.uniform(0.3, 0.7))
+                    except Exception as ex:
+                        errors += 1
+                        logger.warning(f"Error caching assignment #{it.id}: {ex}")
+                else:
+                    already_cached += 1
+
+                # Solution PDF
+                if not os.path.exists(p_sol) or os.path.getsize(p_sol) == 0:
+                    try:
+                        api_client.download_file(it.get_solution_pdf_url(), p_sol)
+                        downloaded += 1
+                        time.sleep(random.uniform(0.3, 0.7))
+                    except Exception as ex:
+                        errors += 1
+                        logger.warning(f"Error caching solution #{it.id}: {ex}")
+                else:
+                    already_cached += 1
+
+            log_console.log(f"Ολοκληρώθηκε η λήψη PDF: {downloaded} νέα λήφθηκαν, {already_cached} υπήρχαν στην cache, {errors} σφάλματα.", "SUCCESS")
+            show_snackbar(f"Ολοκληρώθηκε η αποθήκευση PDF ({downloaded} νέα, {already_cached} cache).")
+            update_filtered_list()
+            progress_bar.visible = False
+            progress_bar.value = None
+            status_text.value = "Έτοιμο. Όλα τα PDF του μαθήματος αποθηκεύτηκαν."
             set_ui_busy(False)
             page.update()
 
@@ -826,6 +1040,7 @@ def main(page: ft.Page):
     help_button.on_click = lambda _: _show_help() if not is_busy else None
     folder_button.on_click = lambda _: (os.startfile(os.path.abspath("downloads")) if sys.platform == "win32" else webbrowser.open(f"file://{os.path.abspath('downloads')}")) if not is_busy else None
     export_chapter_button.on_click = lambda e: handle_export_pdf(e, only_selected_chapter=True)
+    cache_subject_pdfs_button.on_click = handle_cache_subject_pdfs
 
 
     # --- Initial Data Load ---
@@ -951,7 +1166,14 @@ def main(page: ft.Page):
 
     # --- Summary Bar ---
     summary_bar = ft.Container(
-        content=summary_label,
+        content=ft.Row(
+            controls=[
+                summary_label,
+                ft.Container(expand=True),
+                cache_subject_pdfs_button,
+            ],
+            vertical_alignment=ft.CrossAxisAlignment.CENTER,
+        ),
         padding=ft.Padding(16, 4, 16, 4),
     )
 

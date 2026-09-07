@@ -248,3 +248,66 @@ class StorageManager:
         """Get local cache path for question or solution PDF."""
         suffix = "assignment" if file_type == 1 else "solution" if file_type == 2 else f"file_{file_type}"
         return os.path.join(self.pdf_cache_dir, f"{item_id}_{suffix}.pdf")
+
+    def is_subject_cached(self, school_type_id: int, class_id: int, subject_id: int) -> bool:
+        """Check if a subject's metadata is cached locally."""
+        path = self._get_subject_cache_path(school_type_id, class_id, subject_id)
+        return os.path.exists(path) and os.path.getsize(path) > 0
+
+    def get_cache_stats(self) -> Dict[str, Any]:
+        """Compute statistics about local metadata and PDF cache."""
+        subject_files = [f for f in os.listdir(self.cache_dir) if f.startswith("subject_") and f.endswith(".json")]
+        total_questions = 0
+        for f in subject_files:
+            try:
+                with open(os.path.join(self.cache_dir, f), "r", encoding="utf-8") as fp:
+                    d = json.load(fp)
+                    total_questions += len(d.get("items", []))
+            except Exception:
+                pass
+
+        pdf_files = [f for f in os.listdir(self.pdf_cache_dir) if f.endswith(".pdf")]
+        total_pdf_bytes = sum(os.path.getsize(os.path.join(self.pdf_cache_dir, f)) for f in pdf_files)
+        total_pdf_mb = round(total_pdf_bytes / (1024 * 1024), 1)
+
+        tree_cached = os.path.exists(TREE_CACHE_FILE) and os.path.getsize(TREE_CACHE_FILE) > 0
+
+        return {
+            "cached_subjects_count": len(subject_files),
+            "cached_questions_count": total_questions,
+            "cached_pdfs_count": len(pdf_files),
+            "cached_pdfs_mb": total_pdf_mb,
+            "tree_cached": tree_cached,
+        }
+
+    def get_subject_pdf_status(self, items: List[QuestionItem]) -> Dict[str, int]:
+        """Check how many PDFs for the given items are cached locally."""
+        total = len(items)
+        cached_assign = 0
+        cached_sol = 0
+        for it in items:
+            p_assign = self.get_pdf_cache_path(it.id, 1)
+            p_sol = self.get_pdf_cache_path(it.id, 2)
+            if os.path.exists(p_assign) and os.path.getsize(p_assign) > 0:
+                cached_assign += 1
+            if os.path.exists(p_sol) and os.path.getsize(p_sol) > 0:
+                cached_sol += 1
+        return {
+            "total_items": total,
+            "cached_assignments": cached_assign,
+            "cached_solutions": cached_sol,
+            "is_fully_cached": (cached_assign == total and cached_sol == total) if total > 0 else False
+        }
+
+    def clear_pdf_cache(self) -> int:
+        """Clear all cached PDF files to free disk space."""
+        count = 0
+        for f in os.listdir(self.pdf_cache_dir):
+            if f.endswith(".pdf"):
+                try:
+                    os.remove(os.path.join(self.pdf_cache_dir, f))
+                    count += 1
+                except Exception as e:
+                    logger.warning(f"Could not remove cached PDF {f}: {e}")
+        return count
+
