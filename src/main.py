@@ -153,6 +153,8 @@ def main(page: ft.Page):
             populate_chapters_dropdown()
             update_filtered_list()
 
+    settings_dialog = SettingsDialog(page, on_save_callback=on_settings_saved)
+
     # Help Dialog
     help_dialog = ft.AlertDialog(
         modal=True,
