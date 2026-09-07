@@ -452,6 +452,31 @@ class PdfReportBuilder:
         self.api = api_client
         self.storage = storage
 
+    def _load_pdf_reader_safely(self, path: str, url: str) -> Optional[PdfReader]:
+        """Load a PdfReader for a path, automatically downloading or re-downloading if corrupt/missing."""
+        if not os.path.exists(path) or os.path.getsize(path) == 0:
+            try:
+                self.api.download_file(url, path, force=True)
+            except Exception as e:
+                logger.warning(f"Could not download {url} -> {path}: {e}")
+                return None
+
+        try:
+            reader = PdfReader(path)
+            if len(reader.pages) > 0:
+                return reader
+        except Exception as e:
+            logger.warning(f"Corrupt cached PDF ({path}): {e}. Retrying download...")
+            try:
+                self.api.download_file(url, path, force=True)
+                reader = PdfReader(path)
+                if len(reader.pages) > 0:
+                    return reader
+            except Exception as ex:
+                logger.error(f"Re-download also failed for {url}: {ex}")
+                return None
+        return None
+
     def _create_header_footer_overlay(
         self,
         width: float,
@@ -867,29 +892,26 @@ class PdfReportBuilder:
                     assign_path = self.storage.get_pdf_cache_path(it.id, 1)
                     sol_path = self.storage.get_pdf_cache_path(it.id, 2)
 
-                    try:
-                        self.api.download_file(it.get_assignment_pdf_url(), assign_path)
-                    except Exception as e:
-                        logger.warning(f"Could not download assignment PDF for #{it.id}: {e}")
-
-                    try:
-                        self.api.download_file(it.get_solution_pdf_url(), sol_path)
-                    except Exception as e:
-                        logger.warning(f"Could not download solution PDF for #{it.id}: {e}")
+                    assign_reader = self._load_pdf_reader_safely(assign_path, it.get_assignment_pdf_url())
+                    sol_reader = self._load_pdf_reader_safely(sol_path, it.get_solution_pdf_url())
 
                     slices = []
-                    if os.path.exists(assign_path) and os.path.getsize(assign_path) > 0:
-                        slices.append((assign_path, False, "Εκφώνηση", "📄"))
-                    if os.path.exists(sol_path) and os.path.getsize(sol_path) > 0:
-                        slices.append((sol_path, True, "Απάντηση", "💡"))
+                    if assign_reader:
+                        slices.append((assign_reader, False, "Εκφώνηση", "📄"))
+                    else:
+                        logger.warning(f"Could not load assignment PDF for #{it.id}")
+
+                    if sol_reader:
+                        slices.append((sol_reader, True, "Απάντηση", "💡"))
+                    else:
+                        logger.warning(f"Could not load solution PDF for #{it.id}")
 
                     it_assign_p = None
                     it_sol_p = None
                     q_outline = None
 
-                    for path, is_sol, kind_str, icon in slices:
+                    for reader, is_sol, kind_str, icon in slices:
                         try:
-                            reader = PdfReader(path)
                             first_slice_page = True
                             for page in reader.pages:
                                 if is_sol:
@@ -1031,24 +1053,16 @@ class PdfReportBuilder:
                     assign_path = self.storage.get_pdf_cache_path(it.id, 1)
                     sol_path = self.storage.get_pdf_cache_path(it.id, 2)
 
-                    try:
-                        self.api.download_file(it.get_assignment_pdf_url(), assign_path)
-                    except Exception as e:
-                        logger.warning(f"Could not download assignment PDF for #{it.id}: {e}")
-
-                    try:
-                        self.api.download_file(it.get_solution_pdf_url(), sol_path)
-                    except Exception as e:
-                        logger.warning(f"Could not download solution PDF for #{it.id}: {e}")
+                    assign_reader = self._load_pdf_reader_safely(assign_path, it.get_assignment_pdf_url())
+                    sol_reader = self._load_pdf_reader_safely(sol_path, it.get_solution_pdf_url())
 
                     it_assign_p = None
                     it_sol_p = None
 
                     # Add Assignment PDF pages (Black text) with Header & Footer overlay
                     q_outline = None
-                    if os.path.exists(assign_path) and os.path.getsize(assign_path) > 0:
+                    if assign_reader:
                         try:
-                            assign_reader = PdfReader(assign_path)
                             first_page = True
                             for page in assign_reader.pages:
                                 current_page_number += 1
@@ -1079,7 +1093,7 @@ class PdfReportBuilder:
                                     page_idx = len(writer.pages) - 1
                                     parent_node = ch_outline
                                     q_outline = writer.add_outline_item(
-                                        title=f"📄 {q_label} (Εκφώνηση)",
+                                        title=f"{q_label} (Εκφώνηση)",
                                         page_number=page_idx,
                                         parent=parent_node
                                     )
@@ -1087,9 +1101,8 @@ class PdfReportBuilder:
                             logger.error(f"Failed to append assignment PDF #{it.id}: {e}")
 
                     # Add Solution PDF pages directly below (Recolored to Dark Blue) with Header & Footer overlay
-                    if os.path.exists(sol_path) and os.path.getsize(sol_path) > 0:
+                    if sol_reader:
                         try:
-                            sol_reader = PdfReader(sol_path)
                             first_page = True
                             for page in sol_reader.pages:
                                 current_page_number += 1
@@ -1122,13 +1135,13 @@ class PdfReportBuilder:
                                     parent_item = q_outline or ch_outline
                                     if parent_item:
                                         writer.add_outline_item(
-                                            title=f"💡 {q_label} (Απάντηση)",
+                                            title=f"{q_label} (Απάντηση)",
                                             page_number=page_idx,
                                             parent=parent_item
                                         )
                                     else:
                                         writer.add_outline_item(
-                                            title=f"💡 {q_label} (Απάντηση)",
+                                            title=f"{q_label} (Απάντηση)",
                                             page_number=page_idx
                                         )
                         except Exception as e:
@@ -1226,12 +1239,9 @@ class PdfReportBuilder:
         src_path = self.storage.get_pdf_cache_path(item.id, file_type)
         url = item.get_solution_pdf_url() if is_sol else item.get_assignment_pdf_url()
 
-        self.api.download_file(url, src_path)
-
-        if not os.path.exists(src_path) or os.path.getsize(src_path) == 0:
-            raise FileNotFoundError(f"Could not download {kind_label} PDF for #{item.id}")
-
-        reader = PdfReader(src_path)
+        reader = self._load_pdf_reader_safely(src_path, url)
+        if not reader or len(reader.pages) == 0:
+            raise FileNotFoundError(f"Could not load or download valid {kind_label} PDF for #{item.id}")
         for idx, page in enumerate(reader.pages):
             page_num = idx + 1
             if is_sol:
