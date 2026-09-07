@@ -618,7 +618,7 @@ class PdfReportBuilder:
 
         story.append(Spacer(1, 60))
         story.append(Paragraph("Τράπεζα Θεμάτων Διαβαθμισμένης Δυσκολίας - Ι.Ε.Π.", meta_style))
-        story.append(Paragraph("Παραγωγή μέσω SpyQBank", meta_style))
+        story.append(Paragraph(f"Δημιουργήθηκε με το SpyQBank v.{__version__}", meta_style))
 
         iep_full_notice = (
             "Όλα τα θέματα προέρχονται και αντλήθηκαν από την πλατφόρμα της Τράπεζας Θεμάτων Διαβαθμισμένης Δυσκολίας "
@@ -627,15 +627,6 @@ class PdfReportBuilder:
             "https://www.iep.edu.gr/trapeza-thematon-arxiki-selida/"
         )
         story.append(Paragraph(iep_full_notice, iep_cover_style))
-        story.append(Spacer(1, 12))
-        version_style = ParagraphStyle(
-            'CoverVersion',
-            parent=meta_style,
-            fontSize=9,
-            leading=13,
-            textColor=colors.HexColor('#475569')
-        )
-        story.append(Paragraph(f"Έκδοση εφαρμογής: SpyQBank v{__version__}", version_style))
 
         doc.build(story)
         packet.seek(0)
