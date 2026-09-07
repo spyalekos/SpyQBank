@@ -62,7 +62,7 @@ class IepApiClient:
             QuestionItem.from_dict(it, subject_id=subject_id)
             for it in raw_items
         ]
-        # Sort items by question number (1, 2, 3, 4) and then ID
+        # Sort items by question number (2, 4) and then ID
         items.sort(key=lambda x: (x.question or 99, x.id))
         return items
 

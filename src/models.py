@@ -82,7 +82,7 @@ class MaterialChapter:
 class QuestionItem:
     id: int
     subject_id: int
-    question: Optional[int] = None  # 1, 2, 3, 4 -> Θέμα 1ο, 2ο, 3ο, 4ο
+    question: Optional[int] = None  # 2, 4 -> Θέμα 2ο, 4ο
     title: Optional[str] = None
     date: str = ""
     duration_min: Optional[int] = None
