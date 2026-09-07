@@ -43,3 +43,6 @@ flet-app/
 .vscode/
 *.swp
 *.swo
+
+# AI / Agents
+.agents/
