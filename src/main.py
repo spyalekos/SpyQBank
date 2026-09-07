@@ -170,7 +170,7 @@ def main(page: ft.Page):
                     ft.Text("• 🏫 Επιλογή Μαθήματος: Επιλέξτε Τύπο Σχολείου (ΓΕΛ / ΕΠΑΛ), Τάξη και Μάθημα από την πάνω μπάρα για να φορτωθούν τα αντίστοιχα θέματα.", size=16, color=TEXT_MAIN),
                     ft.Text("• 📂 Φιλτράρισμα: Χρησιμοποιήστε το φίλτρο Κεφαλαίου, Τύπου Θέματος (2ο, 4ο) ή την Αναζήτηση με λέξεις-κλειδιά.", size=16, color=TEXT_MAIN),
                     ft.Text("• 💡 Ζεύγη Θεμάτων-Απαντήσεων: Κάθε κάρτα θέματος περιέχει άμεσα κουμπιά προβολής και λήψης της Εκφώνησης και της Λύσης.", size=16, color=TEXT_MAIN),
-                    ft.Text("• 📑 Εξαγωγή σε PDF: Πατήστε «Εξαγωγή Όλων σε PDF» ή «PDF Κεφαλαίου» για να δημιουργήσετε ενιαίο PDF με όλα τα θέματα και τις απαντήσεις τους στη σειρά.", size=16, color=TEXT_MAIN),
+                    ft.Text("• 📑 Εξαγωγή σε PDF: Πατήστε «Παραγωγή ολοκληρωμένου pdf μαθήματος» ή «PDF Κεφαλαίου» για να δημιουργήσετε ενιαίο PDF με όλα τα θέματα και τις απαντήσεις τους στη σειρά.", size=16, color=TEXT_MAIN),
                     ft.Text("• 🎨 Χρωματισμός & Trimming: Οι εκφωνήσεις εμφανίζονται με μαύρα γράμματα και οι απαντήσεις με σκούρο μπλε. Στις Ρυθμίσεις (⚙️) μπορείτε να ελέγξετε την αφαίρεση κενού χώρου και τις διαχωριστικές σελίδες.", size=16, color=TEXT_MAIN),
                     ft.Text("• ⚡ Offline Cache: Τα μεταδεδομένα και τα αρχεία αποθηκεύονται τοπικά για άμεση offline πρόσβαση.", size=16, color=TEXT_MAIN),
                     ft.Divider(height=16, color=BORDER_COLOR),
@@ -244,7 +244,7 @@ def main(page: ft.Page):
         content=ft.Row(
             controls=[
                 ft.Icon(ft.Icons.PICTURE_AS_PDF, size=16, color=ft.Colors.WHITE),
-                ft.Text("Εξαγωγή Όλων σε PDF", size=12, color=ft.Colors.WHITE, weight=ft.FontWeight.W_600),
+                ft.Text("Παραγωγή ολοκληρωμένου pdf μαθήματος", size=12, color=ft.Colors.WHITE, weight=ft.FontWeight.W_600),
             ],
             spacing=4,
             tight=True
@@ -626,7 +626,7 @@ def main(page: ft.Page):
         cache_indicator = ""
         if total_sub > 0:
             if cached_pdfs == total_pdfs and total_pdfs > 0:
-                cache_indicator = f"  •  💾 100% Offline Ready ({cached_pdfs}/{total_pdfs} PDF)"
+                cache_indicator = f"  •  💾 100% έτοιμο offline ({cached_pdfs}/{total_pdfs} PDF)"
             elif cached_pdfs > 0:
                 cache_indicator = f"  •  💾 {cached_pdfs}/{total_pdfs} PDF στην Cache"
             else:
