@@ -75,6 +75,29 @@ class SettingsDialog:
             vertical_alignment=ft.CrossAxisAlignment.CENTER,
         )
 
+        self.group_chapter_switch = ft.Switch(
+            value=self.cfg.get("group_by_main_chapter", True),
+        )
+
+        self.group_chapter_control = ft.Row(
+            controls=[
+                self.group_chapter_switch,
+                ft.Container(
+                    content=ft.Column(
+                        controls=[
+                            ft.Text("Ομαδοποίηση ανά ακέραιο κεφάλαιο (1, 2, 3...)", size=13, weight=ft.FontWeight.W_500, color=TEXT_MAIN),
+                            ft.Text("Συγχώνευση όλων των υποενοτήτων (1.1, 1.2, 1.3...) σε ενιαία ακέραια κεφάλαια στο φίλτρο και στο PDF.", size=11, color=TEXT_MUTED),
+                        ],
+                        spacing=1,
+                    ),
+                    expand=True,
+                    on_click=lambda e: self._toggle_group_chapter(),
+                ),
+            ],
+            spacing=10,
+            vertical_alignment=ft.CrossAxisAlignment.CENTER,
+        )
+
         self.dialog = ft.AlertDialog(
             modal=True,
             title=ft.Row(
@@ -100,6 +123,8 @@ class SettingsDialog:
                         self.trim_control,
                         ft.Divider(height=5, color=ft.Colors.TRANSPARENT),
                         self.chapter_dividers_control,
+                        ft.Divider(height=5, color=ft.Colors.TRANSPARENT),
+                        self.group_chapter_control,
                         ft.Text(
                             "Οι ρυθμίσεις αποθηκεύονται αυτόματα στο αρχείο spyqbank.json στον φάκελο της εφαρμογής.",
                             size=11,
@@ -143,6 +168,7 @@ class SettingsDialog:
         self.footer_field.value = self.cfg.get("custom_footer_text", "")
         self.trim_switch.value = self.cfg.get("trim_whitespace", True)
         self.chapter_dividers_switch.value = self.cfg.get("include_chapter_covers", True)
+        self.group_chapter_switch.value = self.cfg.get("group_by_main_chapter", True)
         if self.dialog not in self.page.overlay:
             self.page.overlay.append(self.dialog)
         self.dialog.open = True
@@ -156,6 +182,10 @@ class SettingsDialog:
         self.chapter_dividers_switch.value = not self.chapter_dividers_switch.value
         self.page.update()
 
+    def _toggle_group_chapter(self):
+        self.group_chapter_switch.value = not self.group_chapter_switch.value
+        self.page.update()
+
     def _on_cancel(self, e):
         self.dialog.open = False
         self.page.update()
@@ -166,6 +196,7 @@ class SettingsDialog:
             "custom_footer_text": self.footer_field.value.strip(),
             "trim_whitespace": bool(self.trim_switch.value),
             "include_chapter_covers": bool(self.chapter_dividers_switch.value),
+            "group_by_main_chapter": bool(self.group_chapter_switch.value),
         }
         save_config(new_cfg)
         self.dialog.open = False

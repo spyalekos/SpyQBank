@@ -21,6 +21,7 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "custom_footer_text": "",
     "trim_whitespace": True,
     "include_chapter_covers": True,
+    "group_by_main_chapter": True,
 }
 
 def load_config() -> Dict[str, Any]:

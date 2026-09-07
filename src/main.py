@@ -18,7 +18,7 @@ if base_dir not in sys.path:
     sys.path.insert(0, base_dir)
 
 from src.version import APP_NAME, APP_TITLE, __version__
-from src.models import SchoolType, ClassLevel, Subject, QuestionItem
+from src.models import SchoolType, ClassLevel, Subject, QuestionItem, extract_main_chapter
 from src.iep_api import IepApiClient
 from src.storage import StorageManager
 from src.pdf_builder import PdfReportBuilder
@@ -147,10 +147,11 @@ def main(page: ft.Page):
         page.update()
 
     def on_settings_saved(new_cfg: dict):
-        log_console.log("Οι ρυθμίσεις επικεφαλίδας και υποσέλιδου αποθηκεύτηκαν στο spyqbank.json.", "SUCCESS")
+        log_console.log("Οι ρυθμίσεις αποθηκεύτηκαν στο spyqbank.json.", "SUCCESS")
         show_snackbar("Οι ρυθμίσεις αποθηκεύτηκαν επιτυχώς!")
-
-    settings_dialog = SettingsDialog(page, on_save_callback=on_settings_saved)
+        if all_items:
+            populate_chapters_dropdown()
+            update_filtered_list()
 
     # Help Dialog
     help_dialog = ft.AlertDialog(
@@ -411,15 +412,51 @@ def main(page: ft.Page):
 
         page.run_thread(worker)
 
+    def _chapter_sort_key(ch_str: str):
+        return [int(text) if text.isdigit() else text.lower() for text in re.split(r"(\d+)", ch_str)]
+
+    def populate_chapters_dropdown():
+        nonlocal selected_chapter
+        cfg = load_config()
+        group_by_main = cfg.get("group_by_main_chapter", True)
+
+        def _item_sort_key(it: QuestionItem):
+            primary_ch = it.get_primary_chapter_name(group_by_main_chapter=group_by_main)
+            return (_chapter_sort_key(primary_ch), it.question or 99, it.id)
+
+        # Sort items naturally: Chapter ascending -> Question (1, 2, 3, 4) -> ID
+        all_items.sort(key=_item_sort_key)
+
+        # Populate chapters dropdown
+        unique_chapters = set()
+        for it in all_items:
+            for m in it.materials:
+                if m.name:
+                    ch = extract_main_chapter(m.name) if group_by_main else m.name
+                    unique_chapters.add(ch)
+
+        sorted_chapters = sorted(list(unique_chapters), key=_chapter_sort_key)
+        chapter_dropdown.options = [
+            ft.dropdown.Option(key="ALL", text="Όλα τα Κεφάλαια / Ενότητες")
+        ] + [
+            ft.dropdown.Option(key=ch, text=ch)
+            for ch in sorted_chapters
+        ]
+        if selected_chapter != "ALL" and selected_chapter not in unique_chapters:
+            selected_chapter = "ALL"
+        chapter_dropdown.value = selected_chapter
+
     def update_filtered_list():
         nonlocal filtered_items
         res = all_items
+        cfg = load_config()
+        group_by_main = cfg.get("group_by_main_chapter", True)
 
         # Filter by Chapter
         if selected_chapter != "ALL":
             res = [
                 it for it in res
-                if any(m.name == selected_chapter for m in it.materials)
+                if it.matches_chapter(selected_chapter, group_by_main_chapter=group_by_main)
             ]
 
         # Filter by Question Type (1, 2, 3, 4)
@@ -543,31 +580,7 @@ def main(page: ft.Page):
                         all_items = []
                         show_snackbar(f"Σφάλμα: {e}", is_error=True)
 
-            def _chapter_sort_key(ch_str: str):
-                return [int(text) if text.isdigit() else text.lower() for text in re.split(r"(\d+)", ch_str)]
-
-            def _item_sort_key(it: QuestionItem):
-                primary_ch = it.materials[0].name if it.materials else "Γενικά / Χωρίς Κεφάλαιο"
-                return (_chapter_sort_key(primary_ch), it.question or 99, it.id)
-
-            # Sort items naturally: Chapter ascending -> Question (1, 2, 3, 4) -> ID
-            all_items.sort(key=_item_sort_key)
-
-            # Populate chapters dropdown
-            unique_chapters = set()
-            for it in all_items:
-                for m in it.materials:
-                    if m.name:
-                        unique_chapters.add(m.name)
-
-            sorted_chapters = sorted(list(unique_chapters), key=_chapter_sort_key)
-            chapter_dropdown.options = [
-                ft.dropdown.Option(key="ALL", text="Όλα τα Κεφάλαια / Ενότητες")
-            ] + [
-                ft.dropdown.Option(key=ch, text=ch)
-                for ch in sorted_chapters
-            ]
-            chapter_dropdown.value = "ALL"
+            populate_chapters_dropdown()
 
             progress_bar.visible = False
             status_text.value = f"Φορτώθηκαν {len(all_items)} θέματα για: {subject.name}."
@@ -749,10 +762,12 @@ def main(page: ft.Page):
         page.update()
 
         def worker():
+            cfg = load_config()
+            group_by_main = cfg.get("group_by_main_chapter", True)
             target_chapter = selected_chapter if (only_selected_chapter and selected_chapter != "ALL") else None
             items_to_export = [
                 it for it in all_items
-                if not target_chapter or any(m.name == target_chapter for m in it.materials)
+                if not target_chapter or it.matches_chapter(target_chapter, group_by_main_chapter=group_by_main)
             ]
 
             if not items_to_export:

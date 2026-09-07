@@ -1,7 +1,57 @@
-"""Data models for SpyQBank."""
-
+import re
 from dataclasses import dataclass, field
 from typing import List, Optional, Dict, Any
+
+
+def extract_main_chapter(name: str) -> str:
+    """
+    Extract the main integer chapter name from an IEP material/chapter string.
+    Examples:
+      '2.1 ΟΙ ΠΡΑΞΕΙΣ' -> 'Κεφάλαιο 2'
+      '2.1.3 Μύκητες' -> 'Κεφάλαιο 2'
+      '3.01. Είδη τριγώνων' -> 'Κεφάλαιο 3'
+      '1.1.8 Η έννοια...' -> 'Κεφάλαιο 1'
+      '1.2.β. Η βασιλεία...' -> 'Κεφάλαιο 1'
+      'Δ.Ε. 10 - ΠΛΑΤΩΝ...' -> 'Διδακτική Ενότητα 10'
+      'Διδακτική Ενότητα 2: ...' -> 'Διδακτική Ενότητα 2'
+      'Βιβλίο 3ο, § 70' -> 'Βιβλίο 3ο'
+      '1. Η ακμή της...' -> 'Κεφάλαιο 1'
+      'Κεφάλαιο 4 - ...' -> 'Κεφάλαιο 4'
+      '-' or '' -> 'Γενικά / Χωρίς Κεφάλαιο'
+    """
+    if not name or name.strip() in ("-", "", "None"):
+        return "Γενικά / Χωρίς Κεφάλαιο"
+
+    s = name.strip()
+
+    # 1. Check for Book / Βιβλίο (e.g. 'Βιβλίο 3ο', 'Βιβλίο 1')
+    m_book = re.search(r"\b(Βιβλίο\s+\d+[ο|α|η|ος]?)\b", s, re.IGNORECASE)
+    if m_book:
+        return m_book.group(1).capitalize()
+
+    # 2. Check for Didactic Unit / Δ.Ε. / Διδακτική Ενότητα (e.g. 'Δ.Ε. 10', 'Διδακτική Ενότητα 3')
+    m_de = re.search(r"\b(?:Δ\.?\s*Ε\.?|Διδακτική\s+Ενότητα)\s*(\d+)", s, re.IGNORECASE)
+    if m_de:
+        return f"Διδακτική Ενότητα {m_de.group(1)}"
+
+    # 3. Check for explicit 'Κεφάλαιο X' / 'ΚΕΦΑΛΑΙΟ X'
+    m_kef = re.search(r"\bΚεφάλαι[ο|α|ου]\s*(\d+)", s, re.IGNORECASE)
+    if m_kef:
+        return f"Κεφάλαιο {int(m_kef.group(1))}"
+
+    # 4. Check for leading dotted numbers: e.g. '2.1', '2.1.3', '3.01', '1.2.β', '1. '
+    m_num = re.match(r"^(\d+)(?:\.|\s|$)", s)
+    if m_num:
+        num = int(m_num.group(1))
+        return f"Κεφάλαιο {num}"
+
+    # 5. Check for any leading integer
+    m_first_int = re.match(r"^(\d+)", s)
+    if m_first_int:
+        return f"Κεφάλαιο {int(m_first_int.group(1))}"
+
+    # Fallback: keep original if no integer chapter could be extracted
+    return s
 
 
 @dataclass
@@ -74,6 +124,27 @@ class QuestionItem:
         if self.question is not None:
             return f"Θέμα {self.question}ο"
         return "Θέμα"
+
+    def get_primary_chapter_name(self, group_by_main_chapter: bool = False) -> str:
+        """Return the primary chapter name, optionally grouped by main integer chapter."""
+        if not self.materials or not self.materials[0].name:
+            return "Γενικά / Χωρίς Κεφάλαιο"
+        raw_name = self.materials[0].name
+        if group_by_main_chapter:
+            return extract_main_chapter(raw_name)
+        return raw_name
+
+    def matches_chapter(self, target_chapter: str, group_by_main_chapter: bool = False) -> bool:
+        """Check if item belongs to the target chapter."""
+        if not target_chapter or target_chapter == "ALL":
+            return True
+        if not self.materials:
+            return target_chapter == "Γενικά / Χωρίς Κεφάλαιο"
+        for m in self.materials:
+            ch = extract_main_chapter(m.name) if group_by_main_chapter else m.name
+            if ch == target_chapter:
+                return True
+        return False
 
     @property
     def has_assignment_pdf(self) -> bool:

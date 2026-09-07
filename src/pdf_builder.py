@@ -610,13 +610,14 @@ class PdfReportBuilder:
         ftr_center = custom_footer_text if custom_footer_text is not None else cfg.get("custom_footer_text", "")
         should_trim = cfg.get("trim_whitespace", True)
         include_chapter_covers = cfg.get("include_chapter_covers", True)
+        group_by_main = cfg.get("group_by_main_chapter", True)
 
         def _chapter_sort_key(ch_str: str):
             """Natural alphanumeric sort key for chapter names (e.g. Chapter 2 before Chapter 10)."""
             return [int(text) if text.isdigit() else text.lower() for text in re.split(r"(\d+)", ch_str)]
 
         def _item_sort_key(it: QuestionItem):
-            primary_ch = it.materials[0].name if it.materials else "Γενικά / Χωρίς Κεφάλαιο"
+            primary_ch = it.get_primary_chapter_name(group_by_main_chapter=group_by_main)
             return (_chapter_sort_key(primary_ch), it.question or 99, it.id)
 
         # Deduplicate items and sort by Chapter (ascending) -> Question Number (1, 2, 3, 4) -> ID
@@ -643,7 +644,7 @@ class PdfReportBuilder:
         # 2. Group items by primary chapter (maintaining sorted chapter order)
         chapters_map: Dict[str, List[QuestionItem]] = {}
         for it in unique_items:
-            primary_ch = it.materials[0].name if it.materials else "Γενικά / Χωρίς Κεφάλαιο"
+            primary_ch = it.get_primary_chapter_name(group_by_main_chapter=group_by_main)
             if primary_ch not in chapters_map:
                 chapters_map[primary_ch] = []
             chapters_map[primary_ch].append(it)
