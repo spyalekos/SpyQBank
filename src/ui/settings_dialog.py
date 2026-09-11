@@ -2,7 +2,7 @@
 
 import flet as ft
 from src.config import load_config, save_config
-from src.ui.theme import PRIMARY, TEXT_MAIN, TEXT_MUTED
+from src.ui.theme import PRIMARY, TEXT_MAIN, TEXT_MUTED, YELLOW_GREY
 
 
 class SettingsDialog:
@@ -189,7 +189,8 @@ class SettingsDialog:
                 ft.Button(
                     content=ft.Text("Ακύρωση", color=TEXT_MUTED),
                     style=ft.ButtonStyle(
-                        bgcolor=ft.Colors.TRANSPARENT,
+                        ## bgcolor=ft.Colors.TRANSPARENT,
+                        bgcolor=YELLOW_GREY,
                         shape=ft.RoundedRectangleBorder(radius=6),
                         padding=ft.Padding(16, 10, 16, 10)
                     ),

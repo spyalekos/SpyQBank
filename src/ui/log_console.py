@@ -8,7 +8,7 @@ from src.ui.theme import BG_DARK, BORDER_DARK
 class LogConsole(ft.Container):
     """
     Log Console control with auto-scroll and instant text buffer update.
-    Follows the LogConsole pattern from .agents/flet.md.
+    Follows the LogConsole pattern from .agents/flet.md. - στερνή μου γνώση
     """
 
     def __init__(self, height: int = 140):

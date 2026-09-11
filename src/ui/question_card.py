@@ -185,7 +185,7 @@ class QuestionCard(ft.Container):
             on_click=lambda _: self._open_url(self.item.get_solution_doc_url())
         ) if item.has_solution_doc else None
 
-        # 4. Action Section: Question & Solution Pairs (Βασικότερο Όλων)
+        # 4. Action Section: Question & Solution Pairs (Βασικότερο Όλωνεεε)
         qa_section = ft.Container(
             content=ft.Row(
                 controls=[

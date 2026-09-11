@@ -5,6 +5,7 @@ import sys
 import re
 import time
 import random
+import asyncio
 import webbrowser
 import flet as ft
 
@@ -31,7 +32,8 @@ from src.ui.theme import (
     BG_LIGHT,
     TEXT_MAIN,
     TEXT_MUTED,
-    BORDER_COLOR
+    BORDER_COLOR,
+    YELLOW_GREY
 )
 from src.ui.log_console import LogConsole
 from src.ui.question_card import QuestionCard
@@ -44,10 +46,10 @@ def main(page: ft.Page):
     page.padding = 0
     page.spacing = 0
     page.bgcolor = "#F1F5F9"
-    page.window.min_width = 980
+    page.window.min_width = 1040
     page.window.min_height = 680
-    page.window.width = 1180
-    page.window.height = 800
+    page.window.width = 1480
+    page.window.height = 820
 
     # Services & Managers
     api_client = IepApiClient()
@@ -68,14 +70,34 @@ def main(page: ft.Page):
     # UI Components
     log_console = LogConsole(height=120)
 
-    # Progress bar for background tasks
+    # Progress bar and spinner for background tasks
     progress_bar = ft.ProgressBar(visible=False, color=PRIMARY_LIGHT, bgcolor="#E2E8F0")
+    status_spinner = ft.ProgressRing(width=14, height=14, stroke_width=2.5, color=PRIMARY, visible=False)
     status_text = ft.Text("Έτοιμο.", size=12, color=TEXT_MUTED)
+
+    def set_status(msg: str, progress: float | None = None, show_progress: bool | None = None):
+        """Update status message, progress bar and active spinner with immediate control repaint on Windows."""
+        status_text.value = msg
+        if progress is not None:
+            progress_bar.value = progress
+        if show_progress is not None:
+            progress_bar.visible = show_progress
+            status_spinner.visible = show_progress
+        try:
+            status_spinner.update()
+            status_text.update()
+            progress_bar.update()
+        except Exception:
+            pass
+        try:
+            page.update()
+        except Exception:
+            pass
 
     # Dropdowns
     type_dropdown = ft.Dropdown(
         label="Τύπος Σχολείου",
-        width=220,
+        width=260,
         content_padding=ft.Padding(10, 0, 10, 0),
         dense=True,
     )
@@ -107,7 +129,7 @@ def main(page: ft.Page):
     )
     qtype_dropdown = ft.Dropdown(
         label="Τύπος Θέματος",
-        width=150,
+        width=190,
         content_padding=ft.Padding(10, 0, 10, 0),
         dense=True,
         options=[
@@ -172,7 +194,7 @@ def main(page: ft.Page):
                     ft.Text("• 💡 Ζεύγη Θεμάτων & Απαντήσεων: Σε κάθε θέμα εμφανίζεται άμεσα η εκφώνηση και ακριβώς από κάτω η ενδεικτική απάντηση/λύση με κουμπιά προβολής και λήψης.", size=16, color=TEXT_MAIN),
                     ft.Text("• 📑 Εξαγωγή σε PDF: Πατήστε «Παραγωγή ολοκληρωμένου pdf μαθήματος» ή «PDF Κεφαλαίου» για να δημιουργήσετε ενιαίο PDF με όλα τα θέματα και τις απαντήσεις τους στη σειρά.", size=16, color=TEXT_MAIN),
                     ft.Text("• 🎨 Έξυπνη Στοίβαξη & Χρωματισμός: Εκφωνήσεις με μαύρα γράμματα και απαντήσεις με σκούρο μπλε (#0D338C). Στις Ρυθμίσεις (⚙️) ελέγχετε την αφαίρεση κενού χώρου, τις διαχωριστικές σελίδες και τον Πίνακα Περιεχομένων.", size=16, color=TEXT_MAIN),
-                    ft.Text("• ⚡ 100% Offline Λειτουργία & Prefetch: Όλα τα δεδομένα και τα PDF αποθηκεύονται τοπικά. Χρησιμοποιήστε το κουμπί «Prefetch ΕΠΑΛ» ή «Λήψη PDF Μαθήματος» για πλήρη offline χρήση.", size=16, color=TEXT_MAIN),
+                    ft.Text("• ⚡ 100% Offline Λειτουργία & Prefetch: Όλα τα δεδομένα και τα PDF αποθηκεύονται τοπικά. Χρησιμοποιήστε τα ειδικά κουμπιά «Prefetch ΓΕΛ», «Prefetch ΕΠΑΛ», «Prefetch Ε.Α.Ε.», «Prefetch ΕΝΕΕΓΥ-Λ» ή «Λήψη PDF Μαθήματος» για πλήρη offline χρήση.", size=16, color=TEXT_MAIN),
                     ft.Text("• ⚙️ Προσαρμοσμένα Στοιχεία: Ορίστε δικό σας τίτλο επικεφαλίδας, κείμενο υποσέλιδου και σελιδοποίηση από το παράθυρο Ρυθμίσεων.", size=16, color=TEXT_MAIN),
                     ft.Divider(height=16, color=BORDER_COLOR),
                     ft.Text(f"Έκδοση: v{__version__} | Τράπεζα Θεμάτων ΙΕΠ (https://trapeza.iep.edu.gr)", size=14, color=TEXT_MUTED, italic=True),
@@ -209,22 +231,29 @@ def main(page: ft.Page):
         page.update()
 
     # Action Controls references for disabling during operations
-    prefetch_epal_button = ft.Button(
-        content=ft.Row(
-            controls=[
-                ft.Icon(ft.Icons.CLOUD_DOWNLOAD, size=16, color=ft.Colors.WHITE),
-                ft.Text("Prefetch ΕΠΑΛ", size=12, color=ft.Colors.WHITE, weight=ft.FontWeight.W_600),
-            ],
-            spacing=4,
-            tight=True
-        ),
-        style=ft.ButtonStyle(
-            bgcolor="#4F46E5",
-            shape=ft.RoundedRectangleBorder(radius=6),
-            padding=ft.Padding(12, 8, 12, 8)
-        ),
-        tooltip="Προφόρτωση όλων των θεμάτων ΕΠΑΛ (με τυχαία καθυστέρηση 1-4s)",
-    )
+    def _create_prefetch_btn(label: str, bg_color: str, tooltip_txt: str) -> ft.Button:
+        return ft.Button(
+            content=ft.Row(
+                controls=[
+                    ft.Icon(ft.Icons.CLOUD_DOWNLOAD, size=14, color=ft.Colors.WHITE),
+                    ft.Text(label, size=11, color=ft.Colors.WHITE, weight=ft.FontWeight.W_600),
+                ],
+                spacing=3,
+                tight=True
+            ),
+            style=ft.ButtonStyle(
+                bgcolor=bg_color,
+                shape=ft.RoundedRectangleBorder(radius=6),
+                padding=ft.Padding(8, 6, 8, 6)
+            ),
+            tooltip=tooltip_txt,
+        )
+
+    prefetch_gel_button = _create_prefetch_btn("Prefetch ΓΕΛ", "#2563EB", "Προφόρτωση όλων των θεμάτων ΓΕΛ (Γενικό Λύκειο)")
+    prefetch_epal_button = _create_prefetch_btn("Prefetch ΕΠΑΛ", "#4F46E5", "Προφόρτωση όλων των θεμάτων ΕΠΑΛ (Επαγγελματικό Λύκειο)")
+    prefetch_eae_button = _create_prefetch_btn("Prefetch Ε.Α.Ε.", "#7C3AED", "Προφόρτωση όλων των θεμάτων Ειδικής Αγωγής (Λύκεια Ε.Α.Ε.)")
+    prefetch_eneegyl_button = _create_prefetch_btn("Prefetch ΕΝΕΕΓΥ-Λ", "#0D9488", "Προφόρτωση όλων των θεμάτων ΕΝ.Ε.Ε.ΓΥ-Λ (Ειδικά Επαγγελματικά Γυμνάσια-Λύκεια)")
+    prefetch_buttons = [prefetch_gel_button, prefetch_epal_button, prefetch_eae_button, prefetch_eneegyl_button]
     sync_button = ft.Button(
         content=ft.Row(
             controls=[
@@ -306,6 +335,15 @@ def main(page: ft.Page):
         tooltip="Λήψη όλων των PDF (Εκφωνήσεων & Απαντήσεων) του επιλεγμένου μαθήματος στην τοπική μνήμη για 100% offline χρήση"
     )
 
+    prefetch_dialog_title = ft.Text("Προφόρτωση για Offline Χρήση", weight=ft.FontWeight.BOLD, size=18)
+    prefetch_dialog_desc = ft.Text("Επιλέξτε τον επιθυμητό τρόπο προφόρτωσης:", size=13, color=TEXT_MAIN)
+    prefetch_dialog_meta_info = ft.Text(
+        "Αποθηκεύει τοπικά τα θέματα, τίτλους και κεφάλαια όλων των μαθημάτων. Επιτρέπει άμεση αναζήτηση, φιλτράρισμα και περιήγηση χωρίς internet.",
+        size=11,
+        color=TEXT_MUTED
+    )
+    current_prefetch_target = {"id": 3, "short": "ΕΠΑΛ", "full": "Επαγγελματικό Λύκειο"}
+
     def _close_prefetch_dialog():
         prefetch_dialog.open = False
         page.update()
@@ -315,24 +353,20 @@ def main(page: ft.Page):
         title=ft.Row(
             controls=[
                 ft.Icon(ft.Icons.CLOUD_DOWNLOAD, color=PRIMARY, size=28),
-                ft.Text("Προφόρτωση ΕΠΑΛ για Offline Χρήση", weight=ft.FontWeight.BOLD, size=18),
+                prefetch_dialog_title,
             ],
             spacing=10
         ),
         content=ft.Container(
             content=ft.Column(
                 controls=[
-                    ft.Text(
-                        "Επιλέξτε τον επιθυμητό τρόπο προφόρτωσης των 125 μαθημάτων ΕΠΑΛ:",
-                        size=13,
-                        color=TEXT_MAIN
-                    ),
+                    prefetch_dialog_desc,
                     ft.Divider(height=8, color=ft.Colors.TRANSPARENT),
                     ft.Container(
                         content=ft.Column(
                             controls=[
                                 ft.Text("⚡ 1. Γρήγορη Προφόρτωση Μεταδεδομένων", weight=ft.FontWeight.BOLD, size=13, color=PRIMARY_DARK),
-                                ft.Text("Αποθηκεύει τοπικά τα θέματα, τίτλους και κεφάλαια όλων των μαθημάτων ΕΠΑΛ. Επιτρέπει άμεση αναζήτηση, φιλτράρισμα και περιήγηση χωρίς internet (~15 MB).", size=11, color=TEXT_MUTED),
+                                prefetch_dialog_meta_info,
                             ],
                             spacing=2,
                         ),
@@ -366,7 +400,7 @@ def main(page: ft.Page):
             ft.Button(
                 content=ft.Text("Ακύρωση", color=TEXT_MUTED),
                 style=ft.ButtonStyle(
-                    bgcolor=ft.Colors.TRANSPARENT,
+                    bgcolor=YELLOW_GREY,
                     shape=ft.RoundedRectangleBorder(radius=6),
                     padding=ft.Padding(14, 10, 14, 10)
                 ),
@@ -375,11 +409,11 @@ def main(page: ft.Page):
             ft.Button(
                 content=ft.Text("Μόνο Μεταδεδομένα", color=PRIMARY_DARK, weight=ft.FontWeight.BOLD),
                 style=ft.ButtonStyle(
-                    bgcolor="#EFF6FF",
+                    bgcolor=ft.Colors.WHITE,
                     shape=ft.RoundedRectangleBorder(radius=6),
                     padding=ft.Padding(14, 10, 14, 10)
                 ),
-                on_click=lambda e: _start_prefetch_epal(include_pdfs=False)
+                on_click=lambda e: _start_prefetch(current_prefetch_target["id"], current_prefetch_target["short"], include_pdfs=False)
             ),
             ft.Button(
                 content=ft.Text("Πλήρης Λήψη (+PDFs)", color=ft.Colors.WHITE, weight=ft.FontWeight.BOLD),
@@ -388,7 +422,7 @@ def main(page: ft.Page):
                     shape=ft.RoundedRectangleBorder(radius=6),
                     padding=ft.Padding(16, 10, 16, 10)
                 ),
-                on_click=lambda e: _start_prefetch_epal(include_pdfs=True)
+                on_click=lambda e: _start_prefetch(current_prefetch_target["id"], current_prefetch_target["short"], include_pdfs=True)
             ),
         ],
         actions_alignment=ft.MainAxisAlignment.END,
@@ -400,8 +434,9 @@ def main(page: ft.Page):
         nonlocal is_busy
         is_busy = busy
         # Disable & visually gray out top & selector bar controls
-        prefetch_epal_button.disabled = busy
-        prefetch_epal_button.opacity = 0.5 if busy else 1.0
+        for p_btn in prefetch_buttons:
+            p_btn.disabled = busy
+            p_btn.opacity = 0.5 if busy else 1.0
 
         sync_button.disabled = busy
         sync_button.opacity = 0.5 if busy else 1.0
@@ -446,18 +481,17 @@ def main(page: ft.Page):
 
         # ⚡ Immediately lock & gray out UI on current UI turn
         set_ui_busy(True)
-        progress_bar.visible = True
-        status_text.value = f"Επεξεργασία & άνοιγμα PDF #{item.id}..."
-        page.update()
+        set_status(f"Επεξεργασία & άνοιγμα PDF #{item.id}...", show_progress=True)
 
-        def worker():
+        async def worker():
             kind_label = "Εκφώνηση" if file_type == 1 else "Λύση"
             kind_slug = "assignment" if file_type == 1 else "solution"
             log_console.log(f"Προετοιμασία PDF #{item.id} ({kind_label}) με τίτλους & χρωματισμό...")
             processed_filename = f"IEP_{item.subject_id}_{item.id}_{kind_slug}_view.pdf"
             dest = os.path.join(storage.pdf_cache_dir, processed_filename)
             try:
-                final_pdf = pdf_builder.build_single_item_report(
+                final_pdf = await asyncio.to_thread(
+                    pdf_builder.build_single_item_report,
                     item=item,
                     file_type=file_type,
                     output_path=dest
@@ -476,12 +510,10 @@ def main(page: ft.Page):
                 url = item.get_assignment_pdf_url() if file_type == 1 else item.get_solution_pdf_url()
                 webbrowser.open(url)
             finally:
-                progress_bar.visible = False
-                status_text.value = "Έτοιμο."
+                set_status("Έτοιμο.", progress=None, show_progress=False)
                 set_ui_busy(False)
-                page.update()
 
-        page.run_thread(worker)
+        page.run_task(worker)
 
     def handle_download_pdf(item: QuestionItem, file_type: int):
         if is_busy:
@@ -489,11 +521,9 @@ def main(page: ft.Page):
 
         # ⚡ Immediately lock & gray out UI on current UI turn
         set_ui_busy(True)
-        progress_bar.visible = True
-        status_text.value = f"Λήψη & μορφοποίηση PDF #{item.id}..."
-        page.update()
+        set_status(f"Λήψη & μορφοποίηση PDF #{item.id}...", show_progress=True)
 
-        def worker():
+        async def worker():
             kind_label = "εκφωνηση" if file_type == 1 else "απαντηση"
             downloads_dir = os.path.abspath("downloads")
             os.makedirs(downloads_dir, exist_ok=True)
@@ -502,7 +532,8 @@ def main(page: ft.Page):
 
             log_console.log(f"Επεξεργασία & λήψη PDF στο φάκελο downloads: {filename}...")
             try:
-                saved_path = pdf_builder.build_single_item_report(
+                saved_path = await asyncio.to_thread(
+                    pdf_builder.build_single_item_report,
                     item=item,
                     file_type=file_type,
                     output_path=dest
@@ -514,12 +545,10 @@ def main(page: ft.Page):
                 log_console.log(f"Σφάλμα αποθήκευσης: {e}", "ERROR")
                 show_snackbar(f"Σφάλμα λήψης: {e}", is_error=True)
             finally:
-                progress_bar.visible = False
-                status_text.value = "Έτοιμο."
+                set_status("Έτοιμο.", progress=None, show_progress=False)
                 set_ui_busy(False)
-                page.update()
 
-        page.run_thread(worker)
+        page.run_task(worker)
 
     def _chapter_sort_key(ch_str: str):
         return [int(text) if text.isdigit() else text.lower() for text in re.split(r"(\d+)", ch_str)]
@@ -661,29 +690,30 @@ def main(page: ft.Page):
 
         # ⚡ Immediately lock & gray out UI on current UI turn
         set_ui_busy(True)
-        progress_bar.visible = True
-        status_text.value = f"Φόρτωση θεμάτων για: {subject.name}..."
-        page.update()
+        set_status(f"Φόρτωση θεμάτων για: {subject.name}...", show_progress=True)
 
-        def worker():
+        async def worker():
             nonlocal all_items, selected_subject
             selected_subject = subject
 
             log_console.log(f"Φόρτωση θεμάτων: {subject.name} (ID: {subject.id})...")
+            await asyncio.sleep(0.01)
 
             # Try loading cache first if not forced
-            cached = storage.load_subject_items(subject.school_type_id, subject.class_id, subject.id)
+            cached = await asyncio.to_thread(storage.load_subject_items, subject.school_type_id, subject.class_id, subject.id)
             if cached and not force_refresh:
                 all_items = cached
                 log_console.log(f"Φορτώθηκαν {len(all_items)} θέματα από την τοπική cache.", "SUCCESS")
             else:
                 try:
-                    fresh_items = api_client.get_subject_items(
+                    fresh_items = await asyncio.to_thread(
+                        api_client.get_subject_items,
                         subject.school_type_id,
                         subject.class_id,
                         subject.id
                     )
-                    report = storage.detect_changes(
+                    report = await asyncio.to_thread(
+                        storage.detect_changes,
                         subject.school_type_id,
                         subject.class_id,
                         subject.id,
@@ -704,12 +734,11 @@ def main(page: ft.Page):
 
             populate_chapters_dropdown()
 
-            progress_bar.visible = False
-            status_text.value = f"Φορτώθηκαν {len(all_items)} θέματα για: {subject.name}."
+            set_status(f"Φορτώθηκαν {len(all_items)} θέματα για: {subject.name}.", show_progress=False)
             set_ui_busy(False)
             update_filtered_list()
 
-        page.run_thread(worker)
+        page.run_task(worker)
 
     def class_sort_key(cl: ClassLevel):
         name = cl.name.upper()
@@ -786,111 +815,128 @@ def main(page: ft.Page):
 
     # --- Sync & Export Handlers ---
 
-    def handle_prefetch_epal(e):
+    def handle_open_prefetch(type_id: int, short_name: str, full_name: str):
         if is_busy:
             return
+        nonlocal current_prefetch_target
+        current_prefetch_target = {"id": type_id, "short": short_name, "full": full_name}
+
+        target_st = next((st for st in school_types if st.id == type_id or short_name.upper() in st.name.upper()), None)
+        count_str = ""
+        if target_st:
+            cnt = sum(len(cl.lessons) for cl in target_st.classes)
+            count_str = f"των {cnt} "
+
+        prefetch_dialog_title.value = f"Προφόρτωση {short_name} για Offline Χρήση"
+        prefetch_dialog_desc.value = f"Επιλέξτε τον επιθυμητό τρόπο προφόρτωσης {count_str}μαθημάτων {short_name} ({full_name}):"
+        prefetch_dialog_meta_info.value = f"Αποθηκεύει τοπικά τα θέματα, τίτλους και κεφάλαια όλων των μαθημάτων {short_name}. Επιτρέπει άμεση αναζήτηση, φιλτράρισμα και περιήγηση χωρίς internet."
+
         if prefetch_dialog not in page.overlay:
             page.overlay.append(prefetch_dialog)
         prefetch_dialog.open = True
         page.update()
 
-    def _start_prefetch_epal(include_pdfs: bool):
+    def _start_prefetch(type_id: int, short_name: str, include_pdfs: bool):
         prefetch_dialog.open = False
         set_ui_busy(True)
-        progress_bar.visible = True
-        progress_bar.value = 0.0
         mode_str = "Μεταδεδομένα + Όλα τα PDF" if include_pdfs else "Μεταδεδομένα"
-        status_text.value = f"Έναρξη προφόρτωσης ΕΠΑΛ ({mode_str})..."
-        page.update()
+        set_status(f"Έναρξη προφόρτωσης {short_name} ({mode_str})...", progress=0.0, show_progress=True)
 
-        def worker():
-            log_console.log(f"=== ΕΝΑΡΞΗ PREFETCH ΕΠΑΛ ({mode_str.upper()}) ===")
-            epal_type = next((st for st in school_types if st.id == 3 or "ΕΠΑΛ" in st.name.upper() or "ΕΠΑ.Λ" in st.name.upper()), None)
-            if not epal_type:
-                log_console.log("Δεν βρέθηκε ο τύπος σχολείου ΕΠΑΛ στο δέντρο.", "ERROR")
-                show_snackbar("Δεν βρέθηκε ο τύπος σχολείου ΕΠΑΛ.", is_error=True)
-                progress_bar.visible = False
-                status_text.value = "Έτοιμο."
+        async def worker():
+            log_console.log(f"=== ΕΝΑΡΞΗ PREFETCH {short_name.upper()} ({mode_str.upper()}) ===")
+            target_type = next((st for st in school_types if st.id == type_id or short_name.upper() in st.name.upper()), None)
+            if not target_type:
+                log_console.log(f"Δεν βρέθηκε ο τύπος σχολείου {short_name} στο δέντρο.", "ERROR")
+                show_snackbar(f"Δεν βρέθηκε ο τύπος σχολείου {short_name}.", is_error=True)
+                set_status("Έτοιμο.", progress=None, show_progress=False)
                 set_ui_busy(False)
-                page.update()
                 return
 
-            all_epal_lessons: list[tuple[ClassLevel, Subject]] = []
-            for cl in sorted(epal_type.classes, key=class_sort_key):
+            all_lessons: list[tuple[ClassLevel, Subject]] = []
+            for cl in sorted(target_type.classes, key=class_sort_key):
                 for sub in cl.lessons:
-                    all_epal_lessons.append((cl, sub))
+                    all_lessons.append((cl, sub))
 
-            total_subjects = len(all_epal_lessons)
-            log_console.log(f"Συνολικά μαθήματα ΕΠΑΛ προς επεξεργασία: {total_subjects}")
+            total_subjects = len(all_lessons)
+            log_console.log(f"Συνολικά μαθήματα {short_name} προς επεξεργασία: {total_subjects}")
+            await asyncio.sleep(0.01)
 
             downloaded_cnt = 0
             cached_cnt = 0
             error_cnt = 0
             pdf_downloaded_cnt = 0
 
-            for idx, (cl, sub) in enumerate(all_epal_lessons, start=1):
+            for idx, (cl, sub) in enumerate(all_lessons, start=1):
                 progress_val = idx / total_subjects
-                progress_bar.value = progress_val
-                status_text.value = f"[{idx}/{total_subjects}] {cl.name} - {sub.name}..."
-                page.update()
+                set_status(f"[{idx}/{total_subjects}] {cl.name} - {sub.name}...", progress=progress_val, show_progress=True)
+                await asyncio.sleep(0.01)
 
                 # Check if metadata already cached
-                cached = storage.load_subject_items(epal_type.id, cl.id, sub.id)
+                cached = await asyncio.to_thread(storage.load_subject_items, target_type.id, cl.id, sub.id)
                 current_lesson_items = []
                 if cached:
                     cached_cnt += 1
                     current_lesson_items = cached
                     log_console.log(f"[{idx}/{total_subjects}] (Cache) {cl.name} -> {sub.name} ({len(cached)} θέματα)")
+                    await asyncio.sleep(0.02)
                 else:
                     # Fetch from IEP API with rate-limiting delay
                     delay = random.uniform(1.0, 3.5)
-                    time.sleep(delay)
+                    await asyncio.sleep(delay)
                     try:
-                        fresh_items = api_client.get_subject_items(epal_type.id, cl.id, sub.id)
-                        storage.save_subject_items(epal_type.id, cl.id, sub.id, fresh_items)
+                        fresh_items = await asyncio.to_thread(api_client.get_subject_items, target_type.id, cl.id, sub.id)
+                        await asyncio.to_thread(storage.save_subject_items, target_type.id, cl.id, sub.id, fresh_items)
                         downloaded_cnt += 1
                         current_lesson_items = fresh_items
                         log_console.log(f"[{idx}/{total_subjects}] (API) {cl.name} -> {sub.name}: {len(fresh_items)} θέματα", "SUCCESS")
+                        await asyncio.sleep(0.01)
                     except Exception as ex:
                         error_cnt += 1
                         log_console.log(f"[{idx}/{total_subjects}] Σφάλμα στο μάθημα {sub.name}: {ex}", "ERROR")
+                        await asyncio.sleep(0.01)
 
                 # If include_pdfs is requested, ensure all PDFs are cached
                 if include_pdfs and current_lesson_items:
-                    for it in current_lesson_items:
+                    total_items = len(current_lesson_items)
+                    for p_idx, it in enumerate(current_lesson_items, start=1):
                         p_assign = storage.get_pdf_cache_path(it.id, 1)
                         p_sol = storage.get_pdf_cache_path(it.id, 2)
 
-                        if not os.path.exists(p_assign) or os.path.getsize(p_assign) == 0:
-                            try:
-                                api_client.download_file(it.get_assignment_pdf_url(), p_assign)
-                                pdf_downloaded_cnt += 1
-                                time.sleep(random.uniform(0.2, 0.6))
-                            except Exception as ex_p:
-                                logger.debug(f"Could not cache assignment #{it.id}: {ex_p}")
+                        need_assign = not os.path.exists(p_assign) or os.path.getsize(p_assign) == 0
+                        need_sol = not os.path.exists(p_sol) or os.path.getsize(p_sol) == 0
 
-                        if not os.path.exists(p_sol) or os.path.getsize(p_sol) == 0:
-                            try:
-                                api_client.download_file(it.get_solution_pdf_url(), p_sol)
-                                pdf_downloaded_cnt += 1
-                                time.sleep(random.uniform(0.2, 0.6))
-                            except Exception as ex_p:
-                                logger.debug(f"Could not cache solution #{it.id}: {ex_p}")
+                        if need_assign or need_sol:
+                            set_status(f"[{idx}/{total_subjects}] {sub.name} [{p_idx}/{total_items}]: Λήψη PDF #{it.id}...", progress=progress_val, show_progress=True)
+                            log_console.log(f"[{idx}/{total_subjects}] {sub.name} [{p_idx}/{total_items}]: Λήψη PDF #{it.id}...")
+                            await asyncio.sleep(0.01)
 
-                page.update()
+                        if need_assign:
+                            try:
+                                await asyncio.to_thread(api_client.download_file, it.get_assignment_pdf_url(), p_assign)
+                                pdf_downloaded_cnt += 1
+                                await asyncio.sleep(random.uniform(0.15, 0.35))
+                            except Exception as ex_a:
+                                log_console.log(f"Σφάλμα λήψης εκφώνησης #{it.id}: {ex_a}", "WARNING")
+                                await asyncio.sleep(0.01)
+
+                        if need_sol:
+                            try:
+                                await asyncio.to_thread(api_client.download_file, it.get_solution_pdf_url(), p_sol)
+                                pdf_downloaded_cnt += 1
+                                await asyncio.sleep(random.uniform(0.15, 0.35))
+                            except Exception as ex_s:
+                                log_console.log(f"Σφάλμα λήψης απάντησης #{it.id}: {ex_s}", "WARNING")
+                                await asyncio.sleep(0.01)
 
             pdf_extra = f", {pdf_downloaded_cnt} νέα PDF αποθηκεύτηκαν" if include_pdfs else ""
-            log_console.log(f"=== ΟΛΟΚΛΗΡΩΣΗ PREFETCH ΕΠΑΛ ===", "SUCCESS")
+            log_console.log(f"=== ΟΛΟΚΛΗΡΩΣΗ PREFETCH {short_name.upper()} ===", "SUCCESS")
             log_console.log(f"Αποτελέσματα: {downloaded_cnt} μαθήματα λήφθηκαν, {cached_cnt} υπήρχαν στην cache{pdf_extra}, {error_cnt} σφάλματα.", "SUCCESS")
-            show_snackbar(f"Ολοκληρώθηκε το Prefetch ΕΠΑΛ ({downloaded_cnt} νέα μαθήματα{pdf_extra}).")
+            show_snackbar(f"Ολοκληρώθηκε το Prefetch {short_name} ({downloaded_cnt} νέα μαθήματα{pdf_extra}).")
 
-            progress_bar.visible = False
-            progress_bar.value = None
-            status_text.value = "Έτοιμο. Η προφόρτωση ΕΠΑΛ ολοκληρώθηκε."
+            set_status(f"Έτοιμο. Η προφόρτωση {short_name} ολοκληρώθηκε.", progress=None, show_progress=False)
             set_ui_busy(False)
-            page.update()
 
-        page.run_thread(worker)
+        page.run_task(worker)
 
     def handle_cache_subject_pdfs(e):
         if is_busy:
@@ -900,12 +946,9 @@ def main(page: ft.Page):
             return
 
         set_ui_busy(True)
-        progress_bar.visible = True
-        progress_bar.value = 0.0
-        status_text.value = f"Λήψη αρχείων PDF για: {selected_subject.name}..."
-        page.update()
+        set_status(f"Λήψη αρχείων PDF για: {selected_subject.name}...", progress=0.0, show_progress=True)
 
-        def worker():
+        async def worker():
             log_console.log(f"Έναρξη λήψης PDF για το μάθημα: {selected_subject.name} ({len(all_items)} θέματα)...")
             total = len(all_items)
             downloaded = 0
@@ -913,9 +956,8 @@ def main(page: ft.Page):
             errors = 0
 
             for idx, it in enumerate(all_items, start=1):
-                progress_bar.value = idx / total
-                status_text.value = f"Λήψη PDF [{idx}/{total}]: Θέμα #{it.id}..."
-                page.update()
+                set_status(f"Λήψη PDF [{idx}/{total}]: Θέμα #{it.id}...", progress=idx / total, show_progress=True)
+                await asyncio.sleep(0.01)
 
                 p_assign = storage.get_pdf_cache_path(it.id, 1)
                 p_sol = storage.get_pdf_cache_path(it.id, 2)
@@ -923,37 +965,38 @@ def main(page: ft.Page):
                 # Assignment PDF
                 if not os.path.exists(p_assign) or os.path.getsize(p_assign) == 0:
                     try:
-                        api_client.download_file(it.get_assignment_pdf_url(), p_assign)
+                        await asyncio.to_thread(api_client.download_file, it.get_assignment_pdf_url(), p_assign)
                         downloaded += 1
-                        time.sleep(random.uniform(0.3, 0.7))
+                        await asyncio.sleep(random.uniform(0.15, 0.35))
                     except Exception as ex:
                         errors += 1
-                        logger.warning(f"Error caching assignment #{it.id}: {ex}")
+                        log_console.log(f"Σφάλμα λήψης εκφώνησης #{it.id}: {ex}", "ERROR")
+                        await asyncio.sleep(0.01)
                 else:
                     already_cached += 1
+                    await asyncio.sleep(0.01)
 
                 # Solution PDF
                 if not os.path.exists(p_sol) or os.path.getsize(p_sol) == 0:
                     try:
-                        api_client.download_file(it.get_solution_pdf_url(), p_sol)
+                        await asyncio.to_thread(api_client.download_file, it.get_solution_pdf_url(), p_sol)
                         downloaded += 1
-                        time.sleep(random.uniform(0.3, 0.7))
+                        await asyncio.sleep(random.uniform(0.15, 0.35))
                     except Exception as ex:
                         errors += 1
-                        logger.warning(f"Error caching solution #{it.id}: {ex}")
+                        log_console.log(f"Σφάλμα λήψης απάντησης #{it.id}: {ex}", "ERROR")
+                        await asyncio.sleep(0.01)
                 else:
                     already_cached += 1
+                    await asyncio.sleep(0.01)
 
             log_console.log(f"Ολοκληρώθηκε η λήψη PDF: {downloaded} νέα λήφθηκαν, {already_cached} υπήρχαν στην cache, {errors} σφάλματα.", "SUCCESS")
             show_snackbar(f"Ολοκληρώθηκε η αποθήκευση PDF ({downloaded} νέα, {already_cached} cache).")
             update_filtered_list()
-            progress_bar.visible = False
-            progress_bar.value = None
-            status_text.value = "Έτοιμο. Όλα τα PDF του μαθήματος αποθηκεύτηκαν."
+            set_status("Έτοιμο. Όλα τα PDF του μαθήματος αποθηκεύτηκαν.", progress=None, show_progress=False)
             set_ui_busy(False)
-            page.update()
 
-        page.run_thread(worker)
+        page.run_task(worker)
 
     def handle_sync_check(e):
         if is_busy:
@@ -972,11 +1015,9 @@ def main(page: ft.Page):
 
         # ⚡ Immediately lock & gray out all UI controls synchronously
         set_ui_busy(True)
-        progress_bar.visible = True
-        status_text.value = "Έναρξη εξαγωγής PDF..."
-        page.update()
+        set_status("Έναρξη εξαγωγής PDF...", show_progress=True)
 
-        def worker():
+        async def worker():
             cfg = load_config()
             group_by_main = cfg.get("group_by_main_chapter", True)
             target_chapter = selected_chapter if (only_selected_chapter and selected_chapter != "ALL") else None
@@ -987,9 +1028,8 @@ def main(page: ft.Page):
 
             if not items_to_export:
                 show_snackbar("Δεν βρέθηκαν θέματα για το επιλεγμένο κεφάλαιο.", is_error=True)
-                progress_bar.visible = False
+                set_status("Έτοιμο.", progress=None, show_progress=False)
                 set_ui_busy(False)
-                page.update()
                 return
 
             ch_slug = target_chapter[:25].replace("/", "_").replace("\\", "_") if target_chapter else "ALL_CHAPTERS"
@@ -999,14 +1039,15 @@ def main(page: ft.Page):
             output_path = os.path.join(downloads_dir, pdf_filename)
 
             log_console.log(f"Έναρξη δημιουργίας PDF: {pdf_filename} ({len(items_to_export)} θέματα)...", "PDF")
+            await asyncio.sleep(0.01)
 
             def on_pdf_progress(msg: str, progress: float):
-                status_text.value = msg
+                set_status(msg, progress=progress, show_progress=True)
                 log_console.log(msg)
-                page.update()
 
             try:
-                final_pdf = pdf_builder.build_combined_report(
+                final_pdf = await asyncio.to_thread(
+                    pdf_builder.build_combined_report,
                     items=items_to_export,
                     output_path=output_path,
                     subject_name=selected_subject.name,
@@ -1031,10 +1072,14 @@ def main(page: ft.Page):
                 set_ui_busy(False)
                 page.update()
 
-        page.run_thread(worker)
+        page.run_task(worker)
 
     # Attach clicks
-    prefetch_epal_button.on_click = handle_prefetch_epal
+    prefetch_gel_button.on_click = lambda _: handle_open_prefetch(1, "ΓΕΛ", "Γενικό Λύκειο")
+    prefetch_epal_button.on_click = lambda _: handle_open_prefetch(3, "ΕΠΑΛ", "Επαγγελματικό Λύκειο")
+    prefetch_eae_button.on_click = lambda _: handle_open_prefetch(6, "Ε.Α.Ε.", "Λύκεια Ειδικής Αγωγής")
+    prefetch_eneegyl_button.on_click = lambda _: handle_open_prefetch(7, "ΕΝΕΕΓΥ-Λ", "ΕΝ.Ε.Ε.ΓΥ-Λ")
+
     sync_button.on_click = handle_sync_check
     export_all_button.on_click = lambda e: handle_export_pdf(e, only_selected_chapter=False)
     settings_button.on_click = lambda _: settings_dialog.show() if not is_busy else None
@@ -1047,21 +1092,20 @@ def main(page: ft.Page):
     # --- Initial Data Load ---
 
     def init_tree():
-        def worker():
+        async def worker():
             nonlocal school_types
-            progress_bar.visible = True
-            status_text.value = "Φόρτωση δέντρου μαθημάτων ΙΕΠ..."
-            page.update()
+            set_status("Φόρτωση δέντρου μαθημάτων ΙΕΠ...", show_progress=True)
             log_console.log("Φόρτωση δέντρου τύπων σχολείων & μαθημάτων...")
+            await asyncio.sleep(0.01)
 
-            cached_tree = storage.load_tree()
+            cached_tree = await asyncio.to_thread(storage.load_tree)
             if cached_tree:
                 school_types = cached_tree
                 log_console.log("Φορτώθηκε το δέντρο σχολείων από την τοπική cache.", "SUCCESS")
             else:
                 try:
-                    school_types = api_client.get_school_tree()
-                    storage.save_tree(school_types)
+                    school_types = await asyncio.to_thread(api_client.get_school_tree)
+                    await asyncio.to_thread(storage.save_tree, school_types)
                     log_console.log(f"Λήφθηκαν {len(school_types)} τύποι σχολείων από το API.", "SUCCESS")
                 except Exception as e:
                     log_console.log(f"Σφάλμα φόρτωσης δέντρου: {e}", "ERROR")
@@ -1076,11 +1120,9 @@ def main(page: ft.Page):
                 # Trigger initial select
                 on_type_changed(None)
 
-            progress_bar.visible = False
-            status_text.value = "Έτοιμο. Επιλέξτε μάθημα."
-            page.update()
+            set_status("Έτοιμο. Επιλέξτε μάθημα.", progress=None, show_progress=False)
 
-        page.run_thread(worker)
+        page.run_task(worker)
 
     # --- Top Navigation Bar ---
     top_header = ft.Container(
@@ -1115,14 +1157,18 @@ def main(page: ft.Page):
                 # Action Buttons
                 ft.Row(
                     controls=[
+                        prefetch_gel_button,
                         prefetch_epal_button,
+                        prefetch_eae_button,
+                        prefetch_eneegyl_button,
                         sync_button,
                         export_all_button,
                         settings_button,
                         help_button,
                         folder_button
                     ],
-                    spacing=8
+                    spacing=6,
+                    wrap=True
                 )
             ],
             vertical_alignment=ft.CrossAxisAlignment.CENTER
@@ -1192,12 +1238,14 @@ def main(page: ft.Page):
                 progress_bar,
                 ft.Row(
                     controls=[
+                        status_spinner,
                         ft.Icon(ft.Icons.INFO_OUTLINE, size=14, color=TEXT_MUTED),
                         status_text,
                         ft.Container(expand=True),
                         ft.Text("https://trapeza.iep.edu.gr", size=11, color=TEXT_MUTED),
                     ],
-                    spacing=6
+                    spacing=6,
+                    vertical_alignment=ft.CrossAxisAlignment.CENTER
                 ),
                 log_console
             ],

@@ -1,7 +1,7 @@
-"""Local storage, caching and change detection engine for SpyQBank."""
-
 import os
+import sys
 import json
+import shutil
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -11,11 +11,26 @@ from src.models import SchoolType, QuestionItem
 
 logger = logging.getLogger("SpyQBank.Storage")
 
-DATA_DIR = os.path.abspath("data")
-CACHE_DIR = os.path.join(DATA_DIR, "cache")
-PDF_CACHE_DIR = os.path.join(DATA_DIR, "pdf_cache")
-TREE_CACHE_FILE = os.path.join(DATA_DIR, "school_tree.json")
-CHANGE_HISTORY_FILE = os.path.join(DATA_DIR, "change_history.json")
+
+def get_default_data_dir() -> str:
+    """Determine the default writable data directory, with PyInstaller bootstrap support."""
+    # When running as a frozen PyInstaller application
+    if getattr(sys, "frozen", False):
+        exe_dir = os.path.dirname(sys.executable)
+        local_data = os.path.join(exe_dir, "data")
+        # If bundled data exists in MEIPASS and local_data doesn't exist yet, bootstrap it
+        meipass_data = os.path.join(getattr(sys, "_MEIPASS", ""), "data")
+        if os.path.exists(meipass_data) and not os.path.exists(local_data):
+            try:
+                shutil.copytree(meipass_data, local_data)
+            except Exception as ex:
+                logger.warning(f"Could not copy bundled data to {local_data}: {ex}")
+        if os.path.exists(local_data):
+            return local_data
+    return os.path.abspath("data")
+
+
+DATA_DIR = get_default_data_dir()
 
 
 @dataclass
@@ -51,10 +66,12 @@ class ChangeReport:
 class StorageManager:
     """Manages persistent caching, file storage, and change detection."""
 
-    def __init__(self, base_dir: str = DATA_DIR):
-        self.base_dir = base_dir
+    def __init__(self, base_dir: Optional[str] = None):
+        self.base_dir = base_dir or get_default_data_dir()
         self.cache_dir = os.path.join(self.base_dir, "cache")
         self.pdf_cache_dir = os.path.join(self.base_dir, "pdf_cache")
+        self.tree_file = os.path.join(self.base_dir, "school_tree.json")
+        self.history_file = os.path.join(self.base_dir, "change_history.json")
         os.makedirs(self.cache_dir, exist_ok=True)
         os.makedirs(self.pdf_cache_dir, exist_ok=True)
 
@@ -84,15 +101,15 @@ class StorageManager:
                 for st in tree
             ]
         }
-        with open(TREE_CACHE_FILE, "w", encoding="utf-8") as f:
+        with open(self.tree_file, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
 
     def load_tree(self) -> Optional[List[SchoolType]]:
         """Load the school tree from disk if available."""
-        if not os.path.exists(TREE_CACHE_FILE):
+        if not os.path.exists(self.tree_file):
             return None
         try:
-            with open(TREE_CACHE_FILE, "r", encoding="utf-8") as f:
+            with open(self.tree_file, "r", encoding="utf-8") as f:
                 data = json.load(f)
             return [
                 SchoolType.from_dict(st)
@@ -218,9 +235,9 @@ class StorageManager:
     def _append_change_history(self, report: ChangeReport) -> None:
         """Append change report to change history file."""
         history = []
-        if os.path.exists(CHANGE_HISTORY_FILE):
+        if os.path.exists(self.history_file):
             try:
-                with open(CHANGE_HISTORY_FILE, "r", encoding="utf-8") as f:
+                with open(self.history_file, "r", encoding="utf-8") as f:
                     history = json.load(f)
             except Exception:
                 history = []
@@ -241,7 +258,7 @@ class StorageManager:
         history.insert(0, entry)
         # Keep last 100 history records
         history = history[:100]
-        with open(CHANGE_HISTORY_FILE, "w", encoding="utf-8") as f:
+        with open(self.history_file, "w", encoding="utf-8") as f:
             json.dump(history, f, ensure_ascii=False, indent=2)
 
     def get_pdf_cache_path(self, item_id: int, file_type: int) -> str:
@@ -270,7 +287,7 @@ class StorageManager:
         total_pdf_bytes = sum(os.path.getsize(os.path.join(self.pdf_cache_dir, f)) for f in pdf_files)
         total_pdf_mb = round(total_pdf_bytes / (1024 * 1024), 1)
 
-        tree_cached = os.path.exists(TREE_CACHE_FILE) and os.path.getsize(TREE_CACHE_FILE) > 0
+        tree_cached = os.path.exists(self.tree_file) and os.path.getsize(self.tree_file) > 0
 
         return {
             "cached_subjects_count": len(subject_files),

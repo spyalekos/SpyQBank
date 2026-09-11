@@ -2,13 +2,17 @@ import os
 
 block_cipher = None
 
+datas_list = []
+if os.path.exists('assets'):
+    datas_list.append(('assets', 'assets'))
+if os.path.exists('data'):
+    datas_list.append(('data', 'data'))
+
 a = Analysis(
     ['run.py'],
     pathex=['.'],
     binaries=[],
-    datas=[
-        ('assets', 'assets'),
-    ] if os.path.exists('assets') else [],
+    datas=datas_list,
     hiddenimports=[
         'src',
         'src.version',

@@ -15,6 +15,7 @@ TEXT_MAIN = "#0F172A"
 TEXT_MUTED = "#64748B"
 BORDER_COLOR = "#E2E8F0"
 BORDER_DARK = "#334155"
+YELLOW_GREY = "#ffef9e"
 
 # Badge colors
 COLOR_Q1 = "#2563EB"       # Blue for Q1

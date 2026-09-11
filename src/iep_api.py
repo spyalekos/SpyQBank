@@ -90,7 +90,7 @@ class IepApiClient:
             temp_path = destination_path + f".tmp_{random.randint(100, 999)}"
             try:
                 logger.info(f"Downloading (attempt {attempt + 1}/{max_retries}) {url} -> {destination_path}")
-                resp = self.session.get(url, stream=True, timeout=30)
+                resp = self.session.get(url, stream=True, timeout=(6, 15))
                 resp.raise_for_status()
 
                 with open(temp_path, "wb") as f:
@@ -136,6 +136,6 @@ class IepApiClient:
                         pass
                 if attempt < max_retries - 1:
                     import time
-                    time.sleep(1.0 * (attempt + 1) + random.uniform(0.1, 0.5))
+                    time.sleep(0.8 * (attempt + 1) + random.uniform(0.1, 0.3))
 
         raise last_error or RuntimeError(f"Failed to download {url} after {max_retries} attempts")
