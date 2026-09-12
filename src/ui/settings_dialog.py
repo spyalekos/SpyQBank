@@ -19,7 +19,7 @@ class SettingsDialog:
 
         self.header_field = ft.TextField(
             label="Τίτλος Επικεφαλίδας (Πάνω Αριστερά)",
-            hint_text="π.χ. Φροντιστήριο / Εκπαιδευτικός Οργανισμός",
+            hint_text="π.χ. 1ο ΕΠΑΛ Χρυσούπολης / Εκπαιδευτικός Οργανισμός",
             value=self.cfg.get("custom_header_title", ""),
             autofocus=True,
             width=500,
@@ -27,7 +27,7 @@ class SettingsDialog:
 
         self.footer_field = ft.TextField(
             label="Κείμενο Υποσέλιδου (Κάτω Κέντρο)",
-            hint_text="π.χ. Επιμέλεια: Καθηγητής ... | Τηλ: 210xxxxxxx",
+            hint_text="π.χ. Επιμέλεια: Καθηγητής ... | email: xxxxxxx@xxxxxx.yyy",
             value=self.cfg.get("custom_footer_text", ""),
             width=500,
         )
