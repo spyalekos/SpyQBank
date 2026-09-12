@@ -1,102 +1,53 @@
-import os
-from PyInstaller.building.api import Splash
+# -*- mode: python ; coding: utf-8 -*-
+from PyInstaller.utils.hooks import collect_all
 
-block_cipher = None
+datas = [('assets', 'assets'), ('data', 'data')]
+binaries = []
+hiddenimports = ['requests', 'pypdf', 'reportlab']
 
-datas_list = []
-if os.path.exists('assets'):
-    datas_list.append(('assets', 'assets'))
-if os.path.exists('data'):
-    datas_list.append(('data', 'data'))
+flet_datas, flet_binaries, flet_hiddenimports = collect_all('flet')
+datas += flet_datas
+binaries += flet_binaries
+hiddenimports += flet_hiddenimports
+
+flet_desktop_datas, flet_desktop_binaries, flet_desktop_hiddenimports = collect_all('flet_desktop')
+datas += flet_desktop_datas
+binaries += flet_desktop_binaries
+hiddenimports += flet_desktop_hiddenimports
 
 a = Analysis(
     ['run.py'],
-    pathex=['.'],
-    binaries=[],
-    datas=datas_list,
-    hiddenimports=[
-        'src',
-        'src.version',
-        'src.models',
-        'src.iep_api',
-        'src.storage',
-        'src.pdf_builder',
-        'src.config',
-        'src.ui',
-        'src.ui.theme',
-        'src.ui.log_console',
-        'src.ui.question_card',
-        'src.ui.settings_dialog',
-        'src.main',
-        'flet',
-        'flet_desktop',
-        'requests',
-        'pypdf',
-        'reportlab',
-    ],
+    pathex=[],
+    binaries=binaries,
+    datas=datas,
+    hiddenimports=hiddenimports,
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
     excludes=[],
-    win_no_prefer_redirects=False,
-    win_private_assemblies=False,
-    cipher=block_cipher,
     noarchive=False,
+    optimize=0,
 )
-
-splash = None
-if os.path.exists('assets/splash.png'):
-    splash = Splash(
-        'assets/splash.png',
-        binaries=a.binaries,
-        datas=a.datas,
-        text_pos=None,
-        text_size=12,
-        minify_script=True,
-        always_on_top=True,
-    )
-elif os.path.exists('assets/splash.jpg'):
-    splash = Splash(
-        'assets/splash.jpg',
-        binaries=a.binaries,
-        datas=a.datas,
-        text_pos=None,
-        text_size=12,
-        minify_script=True,
-        always_on_top=True,
-    )
-
-pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
-
-exe_args = [
-    pyz,
-    a.scripts,
-]
-if splash:
-    exe_args.extend([splash, splash.binaries])
-
-exe_args.extend([
-    a.binaries,
-    a.zipfiles,
-    a.datas,
-    [],
-])
-
-icon_file = 'assets/icon.ico' if os.path.exists('assets/icon.ico') else None
+pyz = PYZ(a.pure)
 
 exe = EXE(
-    *exe_args,
+    pyz,
+    a.scripts,
+    a.binaries,
+    a.datas,
+    [],
     name='SpyQBank',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
-    upx=True,
+    upx=False,
     upx_exclude=[],
     runtime_tmpdir=None,
     console=False,
     disable_windowed_traceback=False,
+    argv_emulation=False,
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=icon_file,
+    icon=['assets/icon.ico'],
 )

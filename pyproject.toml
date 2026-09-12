@@ -16,6 +16,7 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "flet-desktop>=0.86.5",
     "pyinstaller>=6.0.0",
 ]
 
