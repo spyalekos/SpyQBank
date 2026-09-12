@@ -297,23 +297,36 @@ class StorageManager:
             "tree_cached": tree_cached,
         }
 
-    def get_subject_pdf_status(self, items: List[QuestionItem]) -> Dict[str, int]:
-        """Check how many PDFs for the given items are cached locally."""
+    def get_subject_pdf_status(self, items: List[QuestionItem]) -> Dict[str, Any]:
+        """Check how many PDFs for the given items are cached locally based on actual IEP availability."""
         total = len(items)
+        expected_assign = sum(1 for it in items if it.has_assignment_pdf)
+        expected_sol = sum(1 for it in items if it.has_solution_pdf)
+        total_expected_pdfs = expected_assign + expected_sol
+
         cached_assign = 0
         cached_sol = 0
         for it in items:
-            p_assign = self.get_pdf_cache_path(it.id, 1)
-            p_sol = self.get_pdf_cache_path(it.id, 2)
-            if os.path.exists(p_assign) and os.path.getsize(p_assign) > 0:
-                cached_assign += 1
-            if os.path.exists(p_sol) and os.path.getsize(p_sol) > 0:
-                cached_sol += 1
+            if it.has_assignment_pdf:
+                p_assign = self.get_pdf_cache_path(it.id, 1)
+                if os.path.exists(p_assign) and os.path.getsize(p_assign) > 0:
+                    cached_assign += 1
+            if it.has_solution_pdf:
+                p_sol = self.get_pdf_cache_path(it.id, 2)
+                if os.path.exists(p_sol) and os.path.getsize(p_sol) > 0:
+                    cached_sol += 1
+
+        cached_total = cached_assign + cached_sol
+        is_fully = (cached_total == total_expected_pdfs) if total_expected_pdfs > 0 else (total > 0)
         return {
             "total_items": total,
+            "expected_assignments": expected_assign,
+            "expected_solutions": expected_sol,
+            "total_expected_pdfs": total_expected_pdfs,
             "cached_assignments": cached_assign,
             "cached_solutions": cached_sol,
-            "is_fully_cached": (cached_assign == total and cached_sol == total) if total > 0 else False
+            "cached_total": cached_total,
+            "is_fully_cached": is_fully
         }
 
     def clear_pdf_cache(self) -> int:

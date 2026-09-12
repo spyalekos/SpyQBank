@@ -893,18 +893,18 @@ class PdfReportBuilder:
                     assign_path = self.storage.get_pdf_cache_path(it.id, 1)
                     sol_path = self.storage.get_pdf_cache_path(it.id, 2)
 
-                    assign_reader = self._load_pdf_reader_safely(assign_path, it.get_assignment_pdf_url())
-                    sol_reader = self._load_pdf_reader_safely(sol_path, it.get_solution_pdf_url())
+                    assign_reader = self._load_pdf_reader_safely(assign_path, it.get_assignment_pdf_url()) if it.has_assignment_pdf else None
+                    sol_reader = self._load_pdf_reader_safely(sol_path, it.get_solution_pdf_url()) if it.has_solution_pdf else None
 
                     slices = []
                     if assign_reader:
                         slices.append((assign_reader, False, "Εκφώνηση", "📄"))
-                    else:
+                    elif it.has_assignment_pdf:
                         logger.warning(f"Could not load assignment PDF for #{it.id}")
 
                     if sol_reader:
                         slices.append((sol_reader, True, "Απάντηση", "💡"))
-                    else:
+                    elif it.has_solution_pdf:
                         logger.warning(f"Could not load solution PDF for #{it.id}")
 
                     it_assign_p = None
@@ -1051,8 +1051,8 @@ class PdfReportBuilder:
                     assign_path = self.storage.get_pdf_cache_path(it.id, 1)
                     sol_path = self.storage.get_pdf_cache_path(it.id, 2)
 
-                    assign_reader = self._load_pdf_reader_safely(assign_path, it.get_assignment_pdf_url())
-                    sol_reader = self._load_pdf_reader_safely(sol_path, it.get_solution_pdf_url())
+                    assign_reader = self._load_pdf_reader_safely(assign_path, it.get_assignment_pdf_url()) if it.has_assignment_pdf else None
+                    sol_reader = self._load_pdf_reader_safely(sol_path, it.get_solution_pdf_url()) if it.has_solution_pdf else None
 
                     it_assign_p = None
                     it_sol_p = None
@@ -1234,6 +1234,10 @@ class PdfReportBuilder:
 
         is_sol = (file_type == 2)
         kind_label = "Απάντηση" if is_sol else "Εκφώνηση"
+        has_resource = item.has_solution_pdf if is_sol else item.has_assignment_pdf
+        if not has_resource:
+            raise FileNotFoundError(f"Δεν διατίθεται αρχείο {kind_label.lower()}ς από το Ι.Ε.Π. για το θέμα #{item.id}")
+
         src_path = self.storage.get_pdf_cache_path(item.id, file_type)
         url = item.get_solution_pdf_url() if is_sol else item.get_assignment_pdf_url()
 

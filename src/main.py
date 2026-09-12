@@ -548,12 +548,18 @@ def main(page: ft.Page):
         if is_busy:
             return
 
+        has_pdf = item.has_assignment_pdf if file_type == 1 else item.has_solution_pdf
+        kind_label = "Εκφώνηση" if file_type == 1 else "Λύση"
+        if not has_pdf:
+            show_snackbar(f"Δεν διατίθεται {kind_label.lower()} από το Ι.Ε.Π. για το θέμα #{item.id}.", is_error=True)
+            log_console.log(f"Δεν διατίθεται αρχείο PDF ({kind_label}) από το Ι.Ε.Π. για το θέμα #{item.id}.", "WARNING")
+            return
+
         # ⚡ Immediately lock & gray out UI on current UI turn
         set_ui_busy(True)
         set_status(f"Επεξεργασία & άνοιγμα PDF #{item.id}...", show_progress=True)
 
         async def worker():
-            kind_label = "Εκφώνηση" if file_type == 1 else "Λύση"
             kind_slug = "assignment" if file_type == 1 else "solution"
             log_console.log(f"Προετοιμασία PDF #{item.id} ({kind_label}) με τίτλους & χρωματισμό...")
             processed_filename = f"IEP_{item.subject_id}_{item.id}_{kind_slug}_view.pdf"
@@ -588,12 +594,18 @@ def main(page: ft.Page):
         if is_busy:
             return
 
+        has_pdf = item.has_assignment_pdf if file_type == 1 else item.has_solution_pdf
+        kind_label = "εκφωνηση" if file_type == 1 else "απαντηση"
+        if not has_pdf:
+            show_snackbar(f"Δεν διατίθεται {kind_label} από το Ι.Ε.Π. για το θέμα #{item.id}.", is_error=True)
+            log_console.log(f"Δεν διατίθεται αρχείο PDF ({kind_label}) από το Ι.Ε.Π. για το θέμα #{item.id}.", "WARNING")
+            return
+
         # ⚡ Immediately lock & gray out UI on current UI turn
         set_ui_busy(True)
         set_status(f"Λήψη & μορφοποίηση PDF #{item.id}...", show_progress=True)
 
         async def worker():
-            kind_label = "εκφωνηση" if file_type == 1 else "απαντηση"
             downloads_dir = os.path.abspath("downloads")
             os.makedirs(downloads_dir, exist_ok=True)
             filename = f"IEP_{item.subject_id}_{item.id}_{kind_label}.pdf"
@@ -719,15 +731,17 @@ def main(page: ft.Page):
         visible_cnt = len(filtered_items)
         sub_name = selected_subject.name if selected_subject else ""
         pdf_stat = storage.get_subject_pdf_status(all_items) if all_items else {}
-        total_pdfs = total_sub * 2
-        cached_pdfs = (pdf_stat.get("cached_assignments", 0) + pdf_stat.get("cached_solutions", 0)) if pdf_stat else 0
+        total_expected = pdf_stat.get("total_expected_pdfs", 0)
+        cached_pdfs = pdf_stat.get("cached_total", 0)
 
         cache_indicator = ""
         if total_sub > 0:
-            if cached_pdfs == total_pdfs and total_pdfs > 0:
-                cache_indicator = f"  •  💾 100% έτοιμο offline ({cached_pdfs}/{total_pdfs} PDF)"
+            if total_expected > 0 and cached_pdfs == total_expected:
+                cache_indicator = f"  •  💾 100% έτοιμο offline ({cached_pdfs}/{total_expected} PDF)"
             elif cached_pdfs > 0:
-                cache_indicator = f"  •  💾 {cached_pdfs}/{total_pdfs} PDF στην Cache"
+                cache_indicator = f"  •  💾 {cached_pdfs}/{total_expected} PDF στην Cache"
+            elif total_expected == 0:
+                cache_indicator = "  •  ℹ️ Δεν διατίθενται PDF από το Ι.Ε.Π."
             else:
                 cache_indicator = "  •  🌐 Online (Χωρίς τοπικά PDF)"
 
@@ -979,8 +993,8 @@ def main(page: ft.Page):
                         p_assign = storage.get_pdf_cache_path(it.id, 1)
                         p_sol = storage.get_pdf_cache_path(it.id, 2)
 
-                        need_assign = not os.path.exists(p_assign) or os.path.getsize(p_assign) == 0
-                        need_sol = not os.path.exists(p_sol) or os.path.getsize(p_sol) == 0
+                        need_assign = it.has_assignment_pdf and (not os.path.exists(p_assign) or os.path.getsize(p_assign) == 0)
+                        need_sol = it.has_solution_pdf and (not os.path.exists(p_sol) or os.path.getsize(p_sol) == 0)
 
                         if need_assign or need_sol:
                             set_status(f"[{idx}/{total_subjects}] {sub.name} [{p_idx}/{total_items}]: Λήψη PDF #{it.id}...", progress=progress_val, show_progress=True)
@@ -1049,35 +1063,37 @@ def main(page: ft.Page):
                 p_sol = storage.get_pdf_cache_path(it.id, 2)
 
                 # Assignment PDF
-                if not os.path.exists(p_assign) or os.path.getsize(p_assign) == 0:
-                    try:
-                        await asyncio.to_thread(api_client.download_file, it.get_assignment_pdf_url(), p_assign)
-                        downloaded += 1
-                        await asyncio.sleep(random.uniform(0.15, 0.35))
-                    except Exception as ex:
-                        errors += 1
-                        log_console.log(f"Σφάλμα λήψης εκφώνησης #{it.id}: {ex}", "ERROR")
+                if it.has_assignment_pdf:
+                    if not os.path.exists(p_assign) or os.path.getsize(p_assign) == 0:
+                        try:
+                            await asyncio.to_thread(api_client.download_file, it.get_assignment_pdf_url(), p_assign)
+                            downloaded += 1
+                            await asyncio.sleep(random.uniform(0.15, 0.35))
+                        except Exception as ex:
+                            errors += 1
+                            log_console.log(f"Σφάλμα λήψης εκφώνησης #{it.id}: {ex}", "ERROR")
+                            await asyncio.sleep(0.01)
+                    else:
+                        already_cached += 1
                         await asyncio.sleep(0.01)
-                else:
-                    already_cached += 1
-                    await asyncio.sleep(0.01)
 
                 if cancel_requested:
                     break
 
                 # Solution PDF
-                if not os.path.exists(p_sol) or os.path.getsize(p_sol) == 0:
-                    try:
-                        await asyncio.to_thread(api_client.download_file, it.get_solution_pdf_url(), p_sol)
-                        downloaded += 1
-                        await asyncio.sleep(random.uniform(0.15, 0.35))
-                    except Exception as ex:
-                        errors += 1
-                        log_console.log(f"Σφάλμα λήψης απάντησης #{it.id}: {ex}", "ERROR")
+                if it.has_solution_pdf:
+                    if not os.path.exists(p_sol) or os.path.getsize(p_sol) == 0:
+                        try:
+                            await asyncio.to_thread(api_client.download_file, it.get_solution_pdf_url(), p_sol)
+                            downloaded += 1
+                            await asyncio.sleep(random.uniform(0.15, 0.35))
+                        except Exception as ex:
+                            errors += 1
+                            log_console.log(f"Σφάλμα λήψης απάντησης #{it.id}: {ex}", "ERROR")
+                            await asyncio.sleep(0.01)
+                    else:
+                        already_cached += 1
                         await asyncio.sleep(0.01)
-                else:
-                    already_cached += 1
-                    await asyncio.sleep(0.01)
 
             if cancel_requested:
                 log_console.log(f"🛑 [ΔΙΑΚΟΠΗ ΜΕ ESC] Λήψη PDF: Διακόπηκε από το χρήστη. Αποθηκεύτηκαν {downloaded} νέα, {already_cached} υπήρχαν στην cache, {errors} σφάλματα.", "WARNING")

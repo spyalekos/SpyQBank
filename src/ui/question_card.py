@@ -138,14 +138,16 @@ class QuestionCard(ft.Container):
                 shape=ft.RoundedRectangleBorder(radius=6)
             ),
             on_click=lambda _: self.on_view_pdf(self.item, 1)
-        )
+        ) if item.has_assignment_pdf else None
+
         self.dl_assign_btn = ft.IconButton(
             icon=ft.Icons.DOWNLOAD,
             tooltip="Αποθήκευση PDF Εκφώνησης",
             icon_size=18,
             icon_color="#2563EB",
             on_click=lambda _: self.on_download(self.item, 1)
-        )
+        ) if item.has_assignment_pdf else None
+
         self.doc_assign_btn = ft.IconButton(
             icon=ft.Icons.TEXT_SNIPPET_OUTLINED,
             tooltip="Λήψη Word (.docx/.doc)",
@@ -169,14 +171,16 @@ class QuestionCard(ft.Container):
                 shape=ft.RoundedRectangleBorder(radius=6)
             ),
             on_click=lambda _: self.on_view_pdf(self.item, 2)
-        )
+        ) if item.has_solution_pdf else None
+
         self.dl_sol_btn = ft.IconButton(
             icon=ft.Icons.DOWNLOAD,
             tooltip="Αποθήκευση PDF Λύσης",
             icon_size=18,
             icon_color="#059669",
             on_click=lambda _: self.on_download(self.item, 2)
-        )
+        ) if item.has_solution_pdf else None
+
         self.doc_sol_btn = ft.IconButton(
             icon=ft.Icons.TEXT_SNIPPET_OUTLINED,
             tooltip="Λήψη Word (.docx/.doc) Λύσης",
@@ -185,7 +189,46 @@ class QuestionCard(ft.Container):
             on_click=lambda _: self._open_url(self.item.get_solution_doc_url())
         ) if item.has_solution_doc else None
 
-        # 4. Action Section: Question & Solution Pairs (Βασικότερο Όλωνεεε)
+        # Assignment Action Controls
+        assign_controls = []
+        if self.view_assign_btn:
+            assign_controls.append(self.view_assign_btn)
+        if self.dl_assign_btn:
+            assign_controls.append(self.dl_assign_btn)
+        if self.doc_assign_btn:
+            assign_controls.append(self.doc_assign_btn)
+        if not assign_controls:
+            assign_controls.append(
+                ft.Row(
+                    controls=[
+                        ft.Icon(ft.Icons.INFO_OUTLINE, size=14, color=TEXT_MUTED),
+                        ft.Text("Δεν παρέχεται από το Ι.Ε.Π.", size=12, color=TEXT_MUTED, italic=True),
+                    ],
+                    spacing=4
+                )
+            )
+
+        # Solution Action Controls
+        sol_controls = []
+        if self.view_sol_btn:
+            sol_controls.append(self.view_sol_btn)
+        if self.dl_sol_btn:
+            sol_controls.append(self.dl_sol_btn)
+        if self.doc_sol_btn:
+            sol_controls.append(self.doc_sol_btn)
+        if not sol_controls:
+            sol_controls.append(
+                ft.Row(
+                    controls=[
+                        ft.Icon(ft.Icons.INFO_OUTLINE, size=14, color=TEXT_MUTED),
+                        ft.Text("Δεν παρέχεται από το Ι.Ε.Π.", size=12, color=TEXT_MUTED, italic=True),
+                    ],
+                    spacing=4
+                )
+            )
+
+        # 4. Action Section: Question & Solution Pairs (Βασικότερο Όλων)
+        has_sol_any = item.has_solution_pdf or item.has_solution_doc
         qa_section = ft.Container(
             content=ft.Row(
                 controls=[
@@ -201,11 +244,7 @@ class QuestionCard(ft.Container):
                                     spacing=4
                                 ),
                                 ft.Row(
-                                    controls=[
-                                        self.view_assign_btn,
-                                        self.dl_assign_btn,
-                                        *([self.doc_assign_btn] if self.doc_assign_btn else [])
-                                    ],
+                                    controls=assign_controls,
                                     spacing=4
                                 )
                             ],
@@ -224,24 +263,20 @@ class QuestionCard(ft.Container):
                             controls=[
                                 ft.Row(
                                     controls=[
-                                        ft.Icon(ft.Icons.LIGHTBULB_OUTLINE, size=16, color="#065F46"),
-                                        ft.Text("Ενδεικτική Απάντηση / Λύση", size=13, weight=ft.FontWeight.BOLD, color="#065F46"),
+                                        ft.Icon(ft.Icons.LIGHTBULB_OUTLINE, size=16, color="#065F46" if has_sol_any else TEXT_MUTED),
+                                        ft.Text("Ενδεικτική Απάντηση / Λύση", size=13, weight=ft.FontWeight.BOLD, color="#065F46" if has_sol_any else TEXT_MUTED),
                                     ],
                                     spacing=4
                                 ),
                                 ft.Row(
-                                    controls=[
-                                        self.view_sol_btn,
-                                        self.dl_sol_btn,
-                                        *([self.doc_sol_btn] if self.doc_sol_btn else [])
-                                    ],
+                                    controls=sol_controls,
                                     spacing=4
                                 )
                             ],
                             spacing=6
                         ),
-                        bgcolor="#F0FDF4",
-                        border=ft.Border.all(1, "#DCFCE7"),
+                        bgcolor="#F0FDF4" if has_sol_any else "#F8FAFC",
+                        border=ft.Border.all(1, "#DCFCE7" if has_sol_any else "#E2E8F0"),
                         border_radius=8,
                         padding=10,
                         expand=True
@@ -278,12 +313,16 @@ class QuestionCard(ft.Container):
 
     def set_enabled(self, enabled: bool):
         """Enable or disable all action buttons on this card with visual graying out."""
-        self.view_assign_btn.disabled = not enabled
-        self.dl_assign_btn.disabled = not enabled
+        if self.view_assign_btn:
+            self.view_assign_btn.disabled = not enabled
+        if self.dl_assign_btn:
+            self.dl_assign_btn.disabled = not enabled
         if self.doc_assign_btn:
             self.doc_assign_btn.disabled = not enabled
-        self.view_sol_btn.disabled = not enabled
-        self.dl_sol_btn.disabled = not enabled
+        if self.view_sol_btn:
+            self.view_sol_btn.disabled = not enabled
+        if self.dl_sol_btn:
+            self.dl_sol_btn.disabled = not enabled
         if self.doc_sol_btn:
             self.doc_sol_btn.disabled = not enabled
         self.opacity = 1.0 if enabled else 0.45
