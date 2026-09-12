@@ -51,6 +51,11 @@ def main(page: ft.Page):
     page.window.width = 1480
     page.window.height = 820
 
+    # Set window icon if available
+    icon_path = os.path.join(base_dir, "assets", "icon.png")
+    if os.path.exists(icon_path):
+        page.window.icon = icon_path
+
     # Services & Managers
     api_client = IepApiClient()
     storage = StorageManager()
@@ -66,6 +71,19 @@ def main(page: ft.Page):
     selected_chapter: str = "ALL"
     selected_q_type: str = "ALL"
     search_query: str = ""
+    is_busy: bool = False
+    cancel_requested: bool = False
+
+    # Keyboard event handler (Esc to cancel background tasks)
+    def on_keyboard_event(e: ft.KeyboardEvent):
+        nonlocal cancel_requested
+        if e.key == "Escape":
+            if is_busy:
+                cancel_requested = True
+                log_console.log("🛑 Πατήθηκε Esc: Αίτημα διακοπής της τρέχουσας διεργασίας...", "WARNING")
+                show_snackbar("Πατήθηκε Esc - Διακοπή...", is_error=True)
+
+    page.on_keyboard_event = on_keyboard_event
 
     # UI Components
     log_console = LogConsole(height=120)
@@ -843,6 +861,8 @@ def main(page: ft.Page):
         set_status(f"Έναρξη προφόρτωσης {short_name} ({mode_str})...", progress=0.0, show_progress=True)
 
         async def worker():
+            nonlocal cancel_requested
+            cancel_requested = False
             log_console.log(f"=== ΕΝΑΡΞΗ PREFETCH {short_name.upper()} ({mode_str.upper()}) ===")
             target_type = next((st for st in school_types if st.id == type_id or short_name.upper() in st.name.upper()), None)
             if not target_type:
@@ -867,6 +887,9 @@ def main(page: ft.Page):
             pdf_downloaded_cnt = 0
 
             for idx, (cl, sub) in enumerate(all_lessons, start=1):
+                if cancel_requested:
+                    break
+
                 progress_val = idx / total_subjects
                 set_status(f"[{idx}/{total_subjects}] {cl.name} - {sub.name}...", progress=progress_val, show_progress=True)
                 await asyncio.sleep(0.01)
@@ -899,6 +922,9 @@ def main(page: ft.Page):
                 if include_pdfs and current_lesson_items:
                     total_items = len(current_lesson_items)
                     for p_idx, it in enumerate(current_lesson_items, start=1):
+                        if cancel_requested:
+                            break
+
                         p_assign = storage.get_pdf_cache_path(it.id, 1)
                         p_sol = storage.get_pdf_cache_path(it.id, 2)
 
@@ -929,11 +955,15 @@ def main(page: ft.Page):
                                 await asyncio.sleep(0.01)
 
             pdf_extra = f", {pdf_downloaded_cnt} νέα PDF αποθηκεύτηκαν" if include_pdfs else ""
-            log_console.log(f"=== ΟΛΟΚΛΗΡΩΣΗ PREFETCH {short_name.upper()} ===", "SUCCESS")
-            log_console.log(f"Αποτελέσματα: {downloaded_cnt} μαθήματα λήφθηκαν, {cached_cnt} υπήρχαν στην cache{pdf_extra}, {error_cnt} σφάλματα.", "SUCCESS")
-            show_snackbar(f"Ολοκληρώθηκε το Prefetch {short_name} ({downloaded_cnt} νέα μαθήματα{pdf_extra}).")
-
-            set_status(f"Έτοιμο. Η προφόρτωση {short_name} ολοκληρώθηκε.", progress=None, show_progress=False)
+            if cancel_requested:
+                log_console.log(f"🛑 [ΔΙΑΚΟΠΗ ΜΕ ESC] Προφόρτωση {short_name}: Διακόπηκε από το χρήστη. Προφορτώθηκαν: {downloaded_cnt} νέα μαθήματα, {cached_cnt} υπήρχαν στην cache{pdf_extra}, {error_cnt} σφάλματα πριν τη διακοπή.", "WARNING")
+                show_snackbar(f"Διακοπή Prefetch {short_name} με Esc ({downloaded_cnt} μαθήματα{pdf_extra}).", is_error=True)
+                set_status(f"Διακόπηκε με Esc. Προφορτώθηκαν {downloaded_cnt} μαθήματα.", progress=None, show_progress=False)
+            else:
+                log_console.log(f"=== ΟΛΟΚΛΗΡΩΣΗ PREFETCH {short_name.upper()} ===", "SUCCESS")
+                log_console.log(f"Αποτελέσματα: {downloaded_cnt} μαθήματα λήφθηκαν, {cached_cnt} υπήρχαν στην cache{pdf_extra}, {error_cnt} σφάλματα.", "SUCCESS")
+                show_snackbar(f"Ολοκληρώθηκε το Prefetch {short_name} ({downloaded_cnt} νέα μαθήματα{pdf_extra}).")
+                set_status(f"Έτοιμο. Η προφόρτωση {short_name} ολοκληρώθηκε.", progress=None, show_progress=False)
             set_ui_busy(False)
 
         page.run_task(worker)
@@ -949,6 +979,8 @@ def main(page: ft.Page):
         set_status(f"Λήψη αρχείων PDF για: {selected_subject.name}...", progress=0.0, show_progress=True)
 
         async def worker():
+            nonlocal cancel_requested
+            cancel_requested = False
             log_console.log(f"Έναρξη λήψης PDF για το μάθημα: {selected_subject.name} ({len(all_items)} θέματα)...")
             total = len(all_items)
             downloaded = 0
@@ -956,6 +988,9 @@ def main(page: ft.Page):
             errors = 0
 
             for idx, it in enumerate(all_items, start=1):
+                if cancel_requested:
+                    break
+
                 set_status(f"Λήψη PDF [{idx}/{total}]: Θέμα #{it.id}...", progress=idx / total, show_progress=True)
                 await asyncio.sleep(0.01)
 
@@ -976,6 +1011,9 @@ def main(page: ft.Page):
                     already_cached += 1
                     await asyncio.sleep(0.01)
 
+                if cancel_requested:
+                    break
+
                 # Solution PDF
                 if not os.path.exists(p_sol) or os.path.getsize(p_sol) == 0:
                     try:
@@ -990,10 +1028,15 @@ def main(page: ft.Page):
                     already_cached += 1
                     await asyncio.sleep(0.01)
 
-            log_console.log(f"Ολοκληρώθηκε η λήψη PDF: {downloaded} νέα λήφθηκαν, {already_cached} υπήρχαν στην cache, {errors} σφάλματα.", "SUCCESS")
-            show_snackbar(f"Ολοκληρώθηκε η αποθήκευση PDF ({downloaded} νέα, {already_cached} cache).")
+            if cancel_requested:
+                log_console.log(f"🛑 [ΔΙΑΚΟΠΗ ΜΕ ESC] Λήψη PDF: Διακόπηκε από το χρήστη. Αποθηκεύτηκαν {downloaded} νέα, {already_cached} υπήρχαν στην cache, {errors} σφάλματα.", "WARNING")
+                show_snackbar(f"Διακοπή λήψης PDF με Esc ({downloaded} νέα αποθηκεύτηκαν).", is_error=True)
+                set_status(f"Διακόπηκε με Esc. Αποθηκεύτηκαν {downloaded} νέα PDF.", progress=None, show_progress=False)
+            else:
+                log_console.log(f"Ολοκληρώθηκε η λήψη PDF: {downloaded} νέα λήφθηκαν, {already_cached} υπήρχαν στην cache, {errors} σφάλματα.", "SUCCESS")
+                show_snackbar(f"Ολοκληρώθηκε η αποθήκευση PDF ({downloaded} νέα, {already_cached} cache).")
+                set_status("Έτοιμο. Όλα τα PDF του μαθήματος αποθηκεύτηκαν.", progress=None, show_progress=False)
             update_filtered_list()
-            set_status("Έτοιμο. Όλα τα PDF του μαθήματος αποθηκεύτηκαν.", progress=None, show_progress=False)
             set_ui_busy(False)
 
         page.run_task(worker)
@@ -1241,8 +1284,6 @@ def main(page: ft.Page):
                         status_spinner,
                         ft.Icon(ft.Icons.INFO_OUTLINE, size=14, color=TEXT_MUTED),
                         status_text,
-                        ft.Container(expand=True),
-                        ft.Text("https://trapeza.iep.edu.gr", size=11, color=TEXT_MUTED),
                     ],
                     spacing=6,
                     vertical_alignment=ft.CrossAxisAlignment.CENTER
@@ -1266,6 +1307,13 @@ def main(page: ft.Page):
     )
 
     page.update()
+
+    # Close PyInstaller splash screen if running
+    try:
+        import pyi_splash
+        pyi_splash.close()
+    except ImportError:
+        pass
 
     # Start initialization thread
     init_tree()

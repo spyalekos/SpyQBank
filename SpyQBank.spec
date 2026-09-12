@@ -1,4 +1,5 @@
 import os
+from PyInstaller.building.api import Splash
 
 block_cipher = None
 
@@ -42,15 +43,49 @@ a = Analysis(
     cipher=block_cipher,
     noarchive=False,
 )
+
+splash = None
+if os.path.exists('assets/splash.png'):
+    splash = Splash(
+        'assets/splash.png',
+        binaries=a.binaries,
+        datas=a.datas,
+        text_pos=None,
+        text_size=12,
+        minify_script=True,
+        always_on_top=True,
+    )
+elif os.path.exists('assets/splash.jpg'):
+    splash = Splash(
+        'assets/splash.jpg',
+        binaries=a.binaries,
+        datas=a.datas,
+        text_pos=None,
+        text_size=12,
+        minify_script=True,
+        always_on_top=True,
+    )
+
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
-exe = EXE(
+exe_args = [
     pyz,
     a.scripts,
+]
+if splash:
+    exe_args.extend([splash, splash.binaries])
+
+exe_args.extend([
     a.binaries,
     a.zipfiles,
     a.datas,
     [],
+])
+
+icon_file = 'assets/icon.ico' if os.path.exists('assets/icon.ico') else None
+
+exe = EXE(
+    *exe_args,
     name='SpyQBank',
     debug=False,
     bootloader_ignore_signals=False,
@@ -63,4 +98,5 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
+    icon=icon_file,
 )
