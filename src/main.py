@@ -214,6 +214,36 @@ def main(page: ft.Page):
                     ft.Text("• 🎨 Έξυπνη Στοίβαξη & Χρωματισμός: Εκφωνήσεις με μαύρα γράμματα και απαντήσεις με σκούρο μπλε (#0D338C). Στις Ρυθμίσεις (⚙️) ελέγχετε την αφαίρεση κενού χώρου, τις διαχωριστικές σελίδες και τον Πίνακα Περιεχομένων.", size=16, color=TEXT_MAIN),
                     ft.Text("• ⚡ 100% Offline Λειτουργία & Prefetch: Όλα τα δεδομένα και τα PDF αποθηκεύονται τοπικά. Χρησιμοποιήστε τα ειδικά κουμπιά «Prefetch ΓΕΛ», «Prefetch ΕΠΑΛ», «Prefetch Ε.Α.Ε.», «Prefetch ΕΝΕΕΓΥ-Λ» ή «Λήψη PDF Μαθήματος» για πλήρη offline χρήση.", size=16, color=TEXT_MAIN),
                     ft.Text("• ⚙️ Προσαρμοσμένα Στοιχεία: Ορίστε δικό σας τίτλο επικεφαλίδας, κείμενο υποσέλιδου και σελιδοποίηση από το παράθυρο Ρυθμίσεων.", size=16, color=TEXT_MAIN),
+                    ft.Container(
+                        content=ft.Row(
+                            controls=[
+                                ft.Icon(ft.Icons.MENU_BOOK_OUTLINED, color="#1E40AF", size=24),
+                                ft.Column(
+                                    controls=[
+                                        ft.Text("Οδηγός Ορθής & Συνειδητής Χρήσης (USAGE.md):", weight=ft.FontWeight.BOLD, size=14, color="#1E3A8A"),
+                                        ft.Text("Συστάσεις προς τους συναδέλφους για ορθολογική λήψη δεδομένων, σεβασμό των σχολικών ωρών και μηδενική σπατάλη χαρτιού.", size=13, color="#1E40AF"),
+                                    ],
+                                    spacing=2,
+                                    expand=True,
+                                ),
+                                ft.Button(
+                                    content=ft.Text("Άνοιγμα Οδηγού ↗", size=12, color=ft.Colors.WHITE, weight=ft.FontWeight.BOLD),
+                                    style=ft.ButtonStyle(
+                                        bgcolor="#2563EB",
+                                        shape=ft.RoundedRectangleBorder(radius=6),
+                                        padding=ft.Padding(12, 8, 12, 8)
+                                    ),
+                                    on_click=lambda e: webbrowser.open("https://github.com/spyalekos/SpyQBank/blob/master/USAGE.md")
+                                ),
+                            ],
+                            spacing=10,
+                            vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                        ),
+                        bgcolor="#EFF6FF",
+                        border=ft.Border.all(1, "#BFDBFE"),
+                        border_radius=8,
+                        padding=12,
+                    ),
                     ft.Divider(height=16, color=BORDER_COLOR),
                     ft.Row(
                         controls=[
