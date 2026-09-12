@@ -1,6 +1,6 @@
 [project]
 name = "spyqbank"
-version = "1.5.9"
+version = "1.6.0"
 description = "Διαχειριστής Τράπεζας Θεμάτων ΙΕΠ με ταξινόμηση ανά κεφάλαιο & συνδυαστική εξαγωγή Θεμάτων-Απαντήσεων σε PDF"
 authors = [
     { name = "SpyAlekos", email = "alekos@program.gr" }
