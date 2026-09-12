@@ -6,8 +6,10 @@ from PyInstaller.building.api import Splash
 datas = []
 if os.path.exists('assets'):
     datas.append(('assets', 'assets'))
-if os.path.exists('data'):
-    datas.append(('data', 'data'))
+if os.path.exists('data/school_tree.json'):
+    datas.append(('data/school_tree.json', 'data'))
+if os.path.exists('data/cache'):
+    datas.append(('data/cache', 'data/cache'))
 
 binaries = []
 hiddenimports = [
