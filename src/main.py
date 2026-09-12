@@ -215,7 +215,21 @@ def main(page: ft.Page):
                     ft.Text("• ⚡ 100% Offline Λειτουργία & Prefetch: Όλα τα δεδομένα και τα PDF αποθηκεύονται τοπικά. Χρησιμοποιήστε τα ειδικά κουμπιά «Prefetch ΓΕΛ», «Prefetch ΕΠΑΛ», «Prefetch Ε.Α.Ε.», «Prefetch ΕΝΕΕΓΥ-Λ» ή «Λήψη PDF Μαθήματος» για πλήρη offline χρήση.", size=16, color=TEXT_MAIN),
                     ft.Text("• ⚙️ Προσαρμοσμένα Στοιχεία: Ορίστε δικό σας τίτλο επικεφαλίδας, κείμενο υποσέλιδου και σελιδοποίηση από το παράθυρο Ρυθμίσεων.", size=16, color=TEXT_MAIN),
                     ft.Divider(height=16, color=BORDER_COLOR),
-                    ft.Text(f"Έκδοση: v{__version__} | Τράπεζα Θεμάτων ΙΕΠ (https://trapeza.iep.edu.gr)", size=14, color=TEXT_MUTED, italic=True),
+                    ft.Row(
+                        controls=[
+                            ft.Text(f"Έκδοση: v{__version__}", size=14, color=TEXT_MUTED, italic=True),
+                            ft.Text(" • ", size=14, color=TEXT_MUTED),
+                            ft.Text("Δημιουργός: ", size=14, color=TEXT_MUTED, italic=True),
+                            ft.TextButton(
+                                content=ft.Text("SpyAlekos", size=14, color=PRIMARY, weight=ft.FontWeight.BOLD),
+                                style=ft.ButtonStyle(padding=ft.Padding(4, 0, 4, 0)),
+                                on_click=lambda e: webbrowser.open("https://alekos.program.gr"),
+                                tooltip="https://alekos.program.gr"
+                            ),
+                        ],
+                        spacing=2,
+                        vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                    ),
                 ],
                 tight=True,
                 spacing=12,
