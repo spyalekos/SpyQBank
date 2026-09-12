@@ -46,3 +46,6 @@ flet-app/
 
 # AI / Agents
 .agents/
+
+# Scripts (Local / Internal tools)
+scripts/

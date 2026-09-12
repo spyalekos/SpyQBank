@@ -220,14 +220,14 @@ def main(page: ft.Page):
                                 ft.Icon(ft.Icons.MENU_BOOK_OUTLINED, color="#1E40AF", size=24),
                                 ft.Column(
                                     controls=[
-                                        ft.Text("Οδηγός Ορθής & Συνειδητής Χρήσης (USAGE.md):", weight=ft.FontWeight.BOLD, size=14, color="#1E3A8A"),
-                                        ft.Text("Συστάσεις προς τους συναδέλφους για ορθολογική λήψη δεδομένων, σεβασμό των σχολικών ωρών και μηδενική σπατάλη χαρτιού.", size=13, color="#1E40AF"),
+                                        ft.Text("Οδηγός ορθής & συνειδητής χρήσης (USAGE.md):", weight=ft.FontWeight.BOLD, size=14, color="#1E3A8A"),
+                                        ft.Text("Παράκληση προς τους συναδέλφους για ορθολογική λήψη δεδομένων, σεβασμό των σχολικών ωρών και μηδενική σπατάλη χαρτιού.", size=13, color="#1E40AF"),
                                     ],
                                     spacing=2,
                                     expand=True,
                                 ),
                                 ft.Button(
-                                    content=ft.Text("Άνοιγμα Οδηγού ↗", size=12, color=ft.Colors.WHITE, weight=ft.FontWeight.BOLD),
+                                    content=ft.Text("Άνοιγμα οδηγού ↗", size=12, color=ft.Colors.WHITE, weight=ft.FontWeight.BOLD),
                                     style=ft.ButtonStyle(
                                         bgcolor="#2563EB",
                                         shape=ft.RoundedRectangleBorder(radius=6),
