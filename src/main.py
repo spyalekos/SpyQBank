@@ -18,7 +18,7 @@ else:
 if base_dir not in sys.path:
     sys.path.insert(0, base_dir)
 
-from src.version import APP_NAME, APP_TITLE, __version__
+from src.version import APP_NAME, APP_TITLE, __version__ , APP_SECONDLINE
 from src.models import SchoolType, ClassLevel, Subject, QuestionItem, extract_main_chapter
 from src.iep_api import IepApiClient
 from src.storage import StorageManager
@@ -401,7 +401,7 @@ def main(page: ft.Page):
             side=ft.BorderSide(1, "#BFDBFE"),
             padding=ft.Padding(10, 6, 10, 6),
         ),
-        tooltip="Λήψη όλων των PDF (Εκφωνήσεων & Απαντήσεων) του επιλεγμένου μαθήματος στην τοπική μνήμη για 100% offline χρήση"
+        tooltip="Λήψη όλων των PDF (Εκφωνήσεων Θεμάτων & Απαντήσεων) του επιλεγμένου μαθήματος στην τοπική μνήμη για 100% offline χρήση"
     )
 
     prefetch_dialog_title = ft.Text("Προφόρτωση για Offline Χρήση", weight=ft.FontWeight.BOLD, size=18)
@@ -1255,7 +1255,8 @@ def main(page: ft.Page):
                                     ],
                                     spacing=8
                                 ),
-                                ft.Text("Τράπεζα Θεμάτων ΙΕΠ (Εκφωνήσεις & Απαντήσεις)", size=13, weight=ft.FontWeight.W_500, color="#86EFAC")
+                                #ft.Text("Τράπεζα Θεμάτων ΙΕΠ (Εκφωνήσεις & Απαντήσεις)", size=13, weight=ft.FontWeight.W_500, color="#86EFAC")
+                                ft.Text(APP_SECONDLINE, size=13, weight=ft.FontWeight.W_500, color="#86EFAC")
                             ],
                             spacing=1,
                             alignment=ft.MainAxisAlignment.CENTER

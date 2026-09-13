@@ -3,6 +3,7 @@
 __version__ = "1.6.0"
 APP_NAME = "SpyQBank"
 APP_TITLE = "SpyQBank - Τράπεζα Θεμάτων ΙΕΠ"
+APP_SECONDLINE ="Τράπεζα Θεμάτων ΙΕΠ (Θέματα & Απαντήσεις)"
 APP_DESCRIPTION = "Διαχειριστής Τράπεζας Θεμάτων ΙΕΠ με ταξινόμηση ανά κεφάλαιο & συνδυαστική εξαγωγή Θεμάτων-Απαντήσεων σε PDF"
 AUTHOR = "SpyAlekos"
 WEBSITE = "https://alekos.program.gr"
