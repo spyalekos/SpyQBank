@@ -1,6 +1,6 @@
 [project]
 name = "spyqbank"
-version = "1.6.0"
+version = "1.6.1"
 description = "Διαχειριστής Τράπεζας Θεμάτων ΙΕΠ με ταξινόμηση ανά κεφάλαιο & συνδυαστική εξαγωγή Θεμάτων-Απαντήσεων σε PDF"
 authors = [
     { name = "SpyAlekos", email = "alekos@program.gr" }
@@ -17,6 +17,7 @@ dependencies = [
 [dependency-groups]
 dev = [
     "flet-desktop>=0.86.5",
+    "flet-cli>=1.1.2",
     "pyinstaller>=6.0.0",
 ]
 

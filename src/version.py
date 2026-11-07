@@ -1,6 +1,6 @@
 """SpyQBank version and application metadata."""
 
-__version__ = "1.6.0"
+__version__ = "1.6.1"
 APP_NAME = "SpyQBank"
 APP_TITLE = "SpyQBank - Τράπεζα Θεμάτων ΙΕΠ"
 APP_SECONDLINE ="Τράπεζα Θεμάτων ΙΕΠ (Θέματα & Απαντήσεις)"

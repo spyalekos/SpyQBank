@@ -938,8 +938,7 @@ class PdfReportBuilder:
 
                                 # Position slice onto current packed page
                                 dy = current_y - max_y
-                                page.add_transformation(Transformation().translate(tx=0, ty=dy))
-                                current_packed_page.merge_page(page)
+                                current_packed_page.merge_transformed_page(page, Transformation().translate(tx=0, ty=dy))
 
                                 # Add inline badge #<id> on first page of slice for space economy
                                 if first_slice_page:
