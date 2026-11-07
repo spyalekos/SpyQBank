@@ -1,5 +1,6 @@
 # -*- mode: python ; coding: utf-8 -*-
 import os
+import sys
 from PyInstaller.utils.hooks import collect_all
 from PyInstaller.building.api import Splash
 
@@ -58,26 +59,27 @@ a = Analysis(
 )
 
 splash = None
-if os.path.exists('assets/splash.png'):
-    splash = Splash(
-        'assets/splash.png',
-        binaries=a.binaries,
-        datas=a.datas,
-        text_pos=None,
-        text_size=12,
-        minify_script=True,
-        always_on_top=True,
-    )
-elif os.path.exists('assets/splash.jpg'):
-    splash = Splash(
-        'assets/splash.jpg',
-        binaries=a.binaries,
-        datas=a.datas,
-        text_pos=None,
-        text_size=12,
-        minify_script=True,
-        always_on_top=True,
-    )
+if sys.platform == "win32":
+    if os.path.exists('assets/splash.png'):
+        splash = Splash(
+            'assets/splash.png',
+            binaries=a.binaries,
+            datas=a.datas,
+            text_pos=None,
+            text_size=12,
+            minify_script=True,
+            always_on_top=True,
+        )
+    elif os.path.exists('assets/splash.jpg'):
+        splash = Splash(
+            'assets/splash.jpg',
+            binaries=a.binaries,
+            datas=a.datas,
+            text_pos=None,
+            text_size=12,
+            minify_script=True,
+            always_on_top=True,
+        )
 
 pyz = PYZ(a.pure)
 
