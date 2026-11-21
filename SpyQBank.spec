@@ -34,7 +34,6 @@ hiddenimports = [
     "flet_desktop",
     "flet_desktop.extensions",
     "flet_desktop.version",
-    "flet_desktop.win_taskbar",
     "requests",
     "pypdf",
     "reportlab",
@@ -44,6 +43,8 @@ hiddenimports = [
     "PIL.IcoImagePlugin",
     "PIL.BmpImagePlugin",
 ]
+if sys.platform == "win32":
+    hiddenimports.append("flet_desktop.win_taskbar")
 
 excludes = [
     "setuptools",
@@ -91,12 +92,13 @@ a = Analysis(
     optimize=0,
 )
 
-# Drop unused heavy Pillow C-extensions AND root-level duplicate Flutter DLLs
-# (keep the single complete copy inside flet_desktop/app/flet/ for 100% offline standalone .exe!)
+# Drop unused heavy Pillow C-extensions AND root-level duplicate Flutter binaries
+# (keep the single complete copy inside flet_desktop/app/flet/ for 100% offline standalone binary!)
 _DROP_PIL_SUBSTRINGS = ("_avif", "_imagingft", "_webp", "_imagingcms")
 _DUP_FLUTTER_SUBSTRINGS = (
-    "libmpv-2",
+    "libmpv",
     "flutter_windows",
+    "libflutter_linux",
     "libegl.dll",
     "libglesv2.dll",
     "d3dcompiler_47",
@@ -104,6 +106,7 @@ _DUP_FLUTTER_SUBSTRINGS = (
     "vulkan-1",
     "rive_native",
     "_plugin.dll",
+    "_plugin.so",
     "dartjni",
     "flutter_local_notifications",
     "flet.exe",
