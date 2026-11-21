@@ -173,7 +173,7 @@ class SettingsDialog:
                             padding=ft.Padding(8, 4, 8, 4)
                         ),
                         ft.Text(
-                            "Οι ρυθμίσεις αποθηκεύονται αυτόματα στο αρχείο spyqbank.json στον φάκελο της εφαρμογής.",
+                            "Οι ρυθμίσεις, η cache και τα PDF αποθηκεύονται αυτόματα στον φάκελο Έγγραφα\\SpyQBank.",
                             size=11,
                             color=TEXT_MUTED,
                             italic=True

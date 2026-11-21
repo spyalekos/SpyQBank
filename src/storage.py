@@ -8,26 +8,56 @@ from datetime import datetime
 from typing import List, Dict, Any, Optional, Tuple
 
 from src.models import SchoolType, QuestionItem
+from src.config import get_app_user_dir
 
 logger = logging.getLogger("SpyQBank.Storage")
 
 
-def get_default_data_dir() -> str:
-    """Determine the default writable data directory, with PyInstaller bootstrap support."""
-    # When running as a frozen PyInstaller application
+def _bootstrap_bundled_metadata(target_data_dir: str) -> None:
+    """Copy bundled school_tree.json and cache/*.json to Documents\\SpyQBank\\data on first run."""
+    candidates = []
     if getattr(sys, "frozen", False):
-        exe_dir = os.path.dirname(sys.executable)
-        local_data = os.path.join(exe_dir, "data")
-        # If bundled data exists in MEIPASS and local_data doesn't exist yet, bootstrap it
-        meipass_data = os.path.join(getattr(sys, "_MEIPASS", ""), "data")
-        if os.path.exists(meipass_data) and not os.path.exists(local_data):
-            try:
-                shutil.copytree(meipass_data, local_data)
-            except Exception as ex:
-                logger.warning(f"Could not copy bundled data to {local_data}: {ex}")
-        if os.path.exists(local_data):
-            return local_data
-    return os.path.abspath("data")
+        meipass = getattr(sys, "_MEIPASS", "")
+        if meipass:
+            candidates.append(os.path.join(meipass, "data"))
+        candidates.append(os.path.join(os.path.dirname(sys.executable), "data"))
+    else:
+        repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        candidates.append(os.path.join(repo_root, "data"))
+
+    source_data = next(
+        (p for p in candidates if os.path.isdir(p) and os.path.exists(os.path.join(p, "school_tree.json"))),
+        None,
+    )
+    if not source_data or os.path.abspath(source_data) == os.path.abspath(target_data_dir):
+        return
+
+    try:
+        os.makedirs(target_data_dir, exist_ok=True)
+        target_tree = os.path.join(target_data_dir, "school_tree.json")
+        if not os.path.exists(target_tree):
+            shutil.copy2(os.path.join(source_data, "school_tree.json"), target_tree)
+
+        src_cache = os.path.join(source_data, "cache")
+        dst_cache = os.path.join(target_data_dir, "cache")
+        if os.path.isdir(src_cache):
+            os.makedirs(dst_cache, exist_ok=True)
+            for fname in os.listdir(src_cache):
+                if fname.endswith(".json"):
+                    dst_file = os.path.join(dst_cache, fname)
+                    if not os.path.exists(dst_file):
+                        shutil.copy2(os.path.join(src_cache, fname), dst_file)
+    except Exception as ex:
+        logger.warning(f"Could not bootstrap bundled metadata to {target_data_dir}: {ex}")
+
+
+def get_default_data_dir() -> str:
+    """Determine the writable data directory inside Documents\\SpyQBank\\data."""
+    target_data = os.path.join(get_app_user_dir(), "data")
+    if not os.path.exists(os.path.join(target_data, "school_tree.json")):
+        _bootstrap_bundled_metadata(target_data)
+    os.makedirs(target_data, exist_ok=True)
+    return target_data
 
 
 DATA_DIR = get_default_data_dir()

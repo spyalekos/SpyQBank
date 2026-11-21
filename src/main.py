@@ -23,7 +23,7 @@ from src.models import SchoolType, ClassLevel, Subject, QuestionItem, extract_ma
 from src.iep_api import IepApiClient
 from src.storage import StorageManager
 from src.pdf_builder import PdfReportBuilder
-from src.config import load_config, save_config
+from src.config import load_config, save_config, get_downloads_dir, get_app_user_dir
 from src.ui.theme import (
     PRIMARY,
     PRIMARY_LIGHT,
@@ -185,7 +185,7 @@ def main(page: ft.Page):
         page.update()
 
     def on_settings_saved(new_cfg: dict):
-        log_console.log("Οι ρυθμίσεις αποθηκεύτηκαν στο spyqbank.json.", "SUCCESS")
+        log_console.log(f"Οι ρυθμίσεις αποθηκεύτηκαν στο {os.path.join(get_app_user_dir(), 'spyqbank.json')}.", "SUCCESS")
         show_snackbar("Οι ρυθμίσεις αποθηκεύτηκαν επιτυχώς!")
         if all_items:
             populate_chapters_dropdown()
@@ -367,7 +367,7 @@ def main(page: ft.Page):
     )
     folder_button = ft.IconButton(
         icon=ft.Icons.FOLDER_OPEN,
-        tooltip="Άνοιγμα φακέλου Downloads",
+        tooltip="Άνοιγμα φακέλου λήψεων (Έγγραφα\\SpyQBank\\downloads)",
         icon_color=ft.Colors.WHITE,
     )
     export_chapter_button = ft.Button(
@@ -606,12 +606,11 @@ def main(page: ft.Page):
         set_status(f"Λήψη & μορφοποίηση PDF #{item.id}...", show_progress=True)
 
         async def worker():
-            downloads_dir = os.path.abspath("downloads")
-            os.makedirs(downloads_dir, exist_ok=True)
+            downloads_dir = get_downloads_dir()
             filename = f"IEP_{item.subject_id}_{item.id}_{kind_label}.pdf"
             dest = os.path.join(downloads_dir, filename)
 
-            log_console.log(f"Επεξεργασία & λήψη PDF στο φάκελο downloads: {filename}...")
+            log_console.log(f"Επεξεργασία & λήψη PDF στο φάκελο Έγγραφα\\SpyQBank\\downloads: {filename}...")
             try:
                 saved_path = await asyncio.to_thread(
                     pdf_builder.build_single_item_report,
@@ -1144,8 +1143,7 @@ def main(page: ft.Page):
 
             ch_slug = target_chapter[:25].replace("/", "_").replace("\\", "_") if target_chapter else "ALL_CHAPTERS"
             pdf_filename = f"SpyQBank_{selected_subject.id}_{ch_slug}.pdf"
-            downloads_dir = os.path.abspath("downloads")
-            os.makedirs(downloads_dir, exist_ok=True)
+            downloads_dir = get_downloads_dir()
             output_path = os.path.join(downloads_dir, pdf_filename)
 
             log_console.log(f"Έναρξη δημιουργίας PDF: {pdf_filename} ({len(items_to_export)} θέματα)...", "PDF")
@@ -1194,7 +1192,16 @@ def main(page: ft.Page):
     export_all_button.on_click = lambda e: handle_export_pdf(e, only_selected_chapter=False)
     settings_button.on_click = lambda _: settings_dialog.show() if not is_busy else None
     help_button.on_click = lambda _: _show_help() if not is_busy else None
-    folder_button.on_click = lambda _: (os.startfile(os.path.abspath("downloads")) if sys.platform == "win32" else webbrowser.open(f"file://{os.path.abspath('downloads')}")) if not is_busy else None
+    def _open_downloads_folder(_):
+        if is_busy:
+            return
+        dl_dir = get_downloads_dir()
+        if sys.platform == "win32":
+            os.startfile(dl_dir)
+        else:
+            webbrowser.open(f"file://{os.path.abspath(dl_dir)}")
+
+    folder_button.on_click = _open_downloads_folder
     export_chapter_button.on_click = lambda e: handle_export_pdf(e, only_selected_chapter=True)
     cache_subject_pdfs_button.on_click = handle_cache_subject_pdfs
 
